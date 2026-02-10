@@ -12,6 +12,8 @@ type ScanResult = {
         college: string;
         event_name: string;
         ticket_id: string;
+        rollNo?: string;
+        photoUrl?: string | null;
         check_in_time?: string;
     };
     message?: string;
@@ -114,7 +116,7 @@ export default function CoordinatorPage() {
 
                     {/* Status Text */}
                     <h2 className={`text-3xl font-black uppercase mb-2 ${scanResult.status === 'verified' ? 'text-green-600' :
-                            scanResult.status === 'used' ? 'text-red-600' : 'text-gray-300'
+                        scanResult.status === 'used' ? 'text-red-600' : 'text-gray-300'
                         }`}>
                         {scanResult.status === 'verified' ? 'VERIFIED' :
                             scanResult.status === 'used' ? 'ALREADY USED' : 'INVALID'}
@@ -128,17 +130,51 @@ export default function CoordinatorPage() {
                     {/* Participant Details */}
                     {scanResult.participant && (
                         <div className="text-left bg-white/50 p-4 rounded-xl border border-gray-200 mb-6">
-                            <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Participant</p>
-                            <p className="text-2xl font-bold text-gray-800 leading-tight mb-2">{scanResult.participant.name}</p>
+                            {/* Photo and Details Layout */}
+                            <div className="flex gap-4 mb-3">
+                                {/* Photo Section */}
+                                <div className="flex-shrink-0">
+                                    {scanResult.participant.photoUrl ? (
+                                        <div className="relative">
+                                            <img
+                                                src={scanResult.participant.photoUrl}
+                                                alt={scanResult.participant.name}
+                                                className="w-20 h-20 rounded-lg object-cover border-2 border-gray-300 shadow-md"
+                                                referrerPolicy="no-referrer"
+                                                onError={(e) => {
+                                                    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="gray" stroke-width="2"%3E%3Cpath d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"%3E%3C/path%3E%3Ccircle cx="12" cy="7" r="4"%3E%3C/circle%3E%3C/svg%3E';
+                                                }}
+                                            />
+                                            {scanResult.participant.rollNo && (
+                                                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full font-mono">
+                                                    {scanResult.participant.rollNo}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="w-20 h-20 rounded-lg bg-gray-200 flex items-center justify-center border-2 border-gray-300">
+                                            <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                            </svg>
+                                        </div>
+                                    )}
+                                </div>
 
-                            <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">College</p>
-                            <p className="text-md text-gray-700 font-medium mb-3">{scanResult.participant.college}</p>
+                                {/* Details Section */}
+                                <div className="flex-grow">
+                                    <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Participant</p>
+                                    <p className="text-xl font-bold text-gray-800 leading-tight mb-2">{scanResult.participant.name}</p>
+                                    <p className="text-xs text-gray-600 font-medium">{scanResult.participant.college}</p>
+                                </div>
+                            </div>
 
-                            <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Event</p>
-                            <p className="text-md text-purple-600 font-bold">{scanResult.participant.event_name}</p>
+                            <div className="border-t border-gray-200 pt-3">
+                                <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Event</p>
+                                <p className="text-md text-purple-600 font-bold">{scanResult.participant.event_name}</p>
+                            </div>
 
                             {scanResult.status === 'used' && scanResult.participant.check_in_time && (
-                                <div className="mt-4 pt-3 border-t border-red-100">
+                                <div className="mt-3 pt-3 border-t border-red-100">
                                     <p className="text-xs text-red-500 uppercase font-bold">First Scanned At</p>
                                     <p className="text-red-700 font-mono">{scanResult.participant.check_in_time}</p>
                                 </div>

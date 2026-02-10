@@ -6,23 +6,29 @@ import { FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaUtensils, FaLeaf
 
 type FoodScanResult = {
     valid: boolean;
-    status: 'verified' | 'used' | 'invalid' | 'error';
+    status: 'verified' | 'used' | 'invalid' | 'error' | 'eligible';
     participant?: {
         name: string;
         foodPreference: string;
         roomNo?: string;
+        rollNo?: string;
         college: string;
         ticket_id: string;
+        photoUrl?: string | null;
     };
     scanDetails?: {
         mealType: string;
     };
     message?: string;
+    qrPayload?: string;
 };
+
+type MealType = 'breakfast' | 'lunch' | 'snacks' | 'dinner' | 'icecream';
 
 export default function FoodScannerPage() {
     const [scanResult, setScanResult] = useState<FoodScanResult | null>(null);
     const [scanning, setScanning] = useState(true);
+    const [selectedMeal, setSelectedMeal] = useState<MealType>('breakfast');
     const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
     useEffect(() => {
@@ -51,23 +57,66 @@ export default function FoodScannerPage() {
         }
         setScanning(false);
 
-        // Expect format: token|meal
+        // Support both formats: "token" or "token|meal"
+        let qrPayload = decodedText;
+
+        // If QR code doesn't have meal type, append the selected meal
         if (!decodedText.includes('|')) {
-            setScanResult({ valid: false, status: 'invalid', message: 'Not a valid Meal Coupon' });
-            return;
+            qrPayload = `${decodedText}|${selectedMeal}`;
         }
 
         try {
+            // First pass: Dry run to check eligibility without marking as used
             const response = await fetch('/api/verify-food', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ qrPayload: decodedText }),
+                body: JSON.stringify({ qrPayload, dryRun: true }),
             });
             const data = await response.json();
+
+            // Store the payload for the second pass (Approve)
+            if (data.status === 'eligible') {
+                // Attach payload to data so we can use it in handleApprove
+                data.qrPayload = qrPayload;
+            }
             setScanResult(data);
         } catch (error) {
             setScanResult({ valid: false, status: 'error', message: 'Network/Server Error' });
         }
+    };
+
+    const handleApprove = async () => {
+        if (!scanResult || !scanResult.participant) return;
+
+        // We need the original payload. 
+        // detailed hack: access it if we stored it in state, or just reconstruction from existing data is risky if we don't have the raw token.
+        // Let's rely on the fact that we can store it in the scanResult state temporarily (as done above in onScanSuccess modification)
+        // casting to any to access custom property we just added
+        const payload = scanResult.qrPayload;
+
+        // Optimistic Update: Immediately reset to scanning
+        // We fire the API call in the background and don't wait for it.
+        // Ideally we should have a global toast or error handler if this fails, 
+        // but for speed as requested, we prioritize the UI reset.
+        handleReset();
+
+        try {
+            await fetch('/api/verify-food', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ qrPayload: payload, dryRun: false }),
+            });
+            // Success - do nothing as we already reset
+        } catch (error) {
+            console.error("Background approval failed:", error);
+            // In a real app, we might want to alert the user here, 
+            // but since we already reset, showing an alert might interrupt the next scan.
+            // For now, we log to console.
+        }
+    };
+
+    const handleReject = () => {
+        handleReset();
     };
 
     const onScanFailure = (error: any) => { };
@@ -81,12 +130,47 @@ export default function FoodScannerPage() {
         <div className="min-h-screen bg-neutral-900 flex flex-col items-center justify-center p-4">
 
             {!scanResult && (
-                <div className="text-white text-center mb-6">
-                    <h1 className="text-3xl font-bold flex items-center justify-center gap-2">
-                        <FaUtensils /> Food Token Scanner
-                    </h1>
-                    <p className="text-gray-400 text-sm">Scan any Meal Coupon</p>
-                </div>
+                <>
+                    <div className="text-white text-center mb-6">
+                        <h1 className="text-3xl font-bold flex items-center justify-center gap-2">
+                            <FaUtensils /> Food Token Scanner
+                        </h1>
+                        <p className="text-gray-400 text-sm">Scan any Meal Coupon or Token</p>
+                    </div>
+
+                    {/* Meal Type Selector */}
+                    <div className="w-full max-w-md mb-4">
+                        <label className="text-white text-sm font-medium mb-2 block">Select Meal Type:</label>
+                        <div className="grid grid-cols-3 gap-2">
+                            {(['breakfast', 'lunch', 'dinner'] as MealType[]).map((meal) => (
+                                <button
+                                    key={meal}
+                                    onClick={() => setSelectedMeal(meal)}
+                                    className={`px-4 py-2 rounded-lg font-medium transition-all ${selectedMeal === meal
+                                        ? 'bg-blue-600 text-white shadow-lg'
+                                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                        }`}
+                                >
+                                    {meal.charAt(0).toUpperCase() + meal.slice(1)}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                            {(['snacks', 'icecream'] as MealType[]).map((meal) => (
+                                <button
+                                    key={meal}
+                                    onClick={() => setSelectedMeal(meal)}
+                                    className={`px-4 py-2 rounded-lg font-medium transition-all ${selectedMeal === meal
+                                        ? 'bg-blue-600 text-white shadow-lg'
+                                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                        }`}
+                                >
+                                    {meal.charAt(0).toUpperCase() + meal.slice(1)}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </>
             )}
 
             {scanning && (
@@ -98,7 +182,8 @@ export default function FoodScannerPage() {
             {scanResult && (
                 <div className={`w-full max-w-md p-8 rounded-2xl shadow-2xl text-center animate-fade-in
                     ${scanResult.status === 'verified' ? 'bg-green-50' :
-                        scanResult.status === 'used' ? 'bg-red-50' : 'bg-gray-800'}
+                        scanResult.status === 'used' ? 'bg-red-50' :
+                            scanResult.status === 'eligible' ? 'bg-yellow-50' : 'bg-gray-800'}
                 `}>
 
                     {/* Meal Type Header */}
@@ -112,15 +197,18 @@ export default function FoodScannerPage() {
                     <div className="flex justify-center mb-4">
                         {scanResult.status === 'verified' && <FaCheckCircle className="text-green-500 text-7xl" />}
                         {scanResult.status === 'used' && <FaExclamationTriangle className="text-red-500 text-7xl" />}
+                        {scanResult.status === 'eligible' && <FaUtensils className="text-yellow-600 text-7xl" />}
                         {(scanResult.status === 'invalid' || scanResult.status === 'error') && <FaTimesCircle className="text-gray-400 text-7xl" />}
                     </div>
 
                     {/* Status Text */}
                     <h2 className={`text-3xl font-black uppercase mb-2 ${scanResult.status === 'verified' ? 'text-green-600' :
-                            scanResult.status === 'used' ? 'text-red-600' : 'text-gray-300'
+                        scanResult.status === 'used' ? 'text-red-600' :
+                            scanResult.status === 'eligible' ? 'text-yellow-700' : 'text-gray-300'
                         }`}>
                         {scanResult.status === 'verified' ? 'ENJOY YOUR MEAL' :
-                            scanResult.status === 'used' ? 'ALREADY REDEEMED' : 'INVALID COUPON'}
+                            scanResult.status === 'used' ? 'ALREADY REDEEMED' :
+                                scanResult.status === 'eligible' ? 'CONFIRM MEAL' : 'INVALID COUPON'}
                     </h2>
 
                     {scanResult.message && <p className="text-gray-500 mb-6 font-medium">{scanResult.message}</p>}
@@ -129,7 +217,7 @@ export default function FoodScannerPage() {
                     {scanResult.participant && (
                         <div className="bg-white p-5 rounded-xl border-2 border-dashed border-gray-300 text-left relative overflow-hidden">
                             {/* Food Pref Badge */}
-                            <div className={`absolute top-0 right-0 p-2 pl-4 rounded-bl-xl font-bold text-white text-sm flex items-center gap-1
+                            <div className={`absolute top-0 right-0 p-2 pl-4 rounded-bl-xl font-bold text-white text-sm flex items-center gap-1 z-10
                                 ${scanResult.participant.foodPreference.toLowerCase().includes('veg') && !scanResult.participant.foodPreference.toLowerCase().includes('non')
                                     ? 'bg-green-600' : 'bg-red-600'}
                             `}>
@@ -137,30 +225,82 @@ export default function FoodScannerPage() {
                                     ? <><FaLeaf /> VEG</> : <><FaDrumstickBite /> NON-VEG</>}
                             </div>
 
-                            <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Student</p>
-                            <p className="text-2xl font-bold text-gray-800 leading-tight mb-2">{scanResult.participant.name}</p>
-
-                            <div className="grid grid-cols-2 gap-4 mt-4">
-                                <div>
-                                    <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Room No</p>
-                                    <p className="text-lg font-mono font-bold text-gray-700">
-                                        {scanResult.participant.roomNo || 'N/A'}
-                                    </p>
+                            {/* Photo and Details Layout */}
+                            <div className="flex gap-4">
+                                {/* Photo Section */}
+                                <div className="flex-shrink-0">
+                                    {scanResult.participant.photoUrl ? (
+                                        <div className="relative">
+                                            <img
+                                                src={scanResult.participant.photoUrl}
+                                                alt={scanResult.participant.name}
+                                                className="w-24 h-24 rounded-lg object-cover border-2 border-gray-300 shadow-md"
+                                                referrerPolicy="no-referrer"
+                                                onError={(e) => {
+                                                    // Fallback to placeholder if image fails to load
+                                                    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="gray" stroke-width="2"%3E%3Cpath d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"%3E%3C/path%3E%3Ccircle cx="12" cy="7" r="4"%3E%3C/circle%3E%3C/svg%3E';
+                                                }}
+                                            />
+                                            {scanResult.participant.rollNo && (
+                                                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full font-mono">
+                                                    {scanResult.participant.rollNo}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="w-24 h-24 rounded-lg bg-gray-200 flex items-center justify-center border-2 border-gray-300">
+                                            <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                            </svg>
+                                        </div>
+                                    )}
                                 </div>
-                                <div>
-                                    <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Ticket ID</p>
-                                    <p className="text-sm font-mono text-gray-600">{scanResult.participant.ticket_id}</p>
+
+                                {/* Details Section */}
+                                <div className="flex-grow">
+                                    <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Student</p>
+                                    <p className="text-xl font-bold text-gray-800 leading-tight mb-3">{scanResult.participant.name}</p>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Room No</p>
+                                            <p className="text-base font-mono font-bold text-gray-700">
+                                                {scanResult.participant.roomNo || 'N/A'}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Ticket ID</p>
+                                            <p className="text-xs font-mono text-gray-600">{scanResult.participant.ticket_id}</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    <button
-                        onClick={handleReset}
-                        className="w-full mt-6 py-4 rounded-xl bg-neutral-900 text-white font-bold text-lg hover:bg-neutral-800 transition-colors shadow-lg active:scale-95"
-                    >
-                        Scan Next
-                    </button>
+                    {scanResult.status === 'eligible' ? (
+                        <div className="flex gap-4 mt-6">
+                            <button
+                                onClick={handleReject}
+                                className="flex-1 py-4 rounded-xl bg-red-600 text-white font-bold text-lg hover:bg-red-700 transition-colors shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <FaTimesCircle /> REJECT
+                            </button>
+                            <button
+                                onClick={handleApprove}
+                                className="flex-1 py-4 rounded-xl bg-green-600 text-white font-bold text-lg hover:bg-green-700 transition-colors shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <FaCheckCircle /> APPROVE
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={handleReset}
+                            className="w-full mt-6 py-4 rounded-xl bg-neutral-900 text-white font-bold text-lg hover:bg-neutral-800 transition-colors shadow-lg active:scale-95"
+                        >
+                            Scan Next
+                        </button>
+                    )}
                 </div>
             )}
         </div>

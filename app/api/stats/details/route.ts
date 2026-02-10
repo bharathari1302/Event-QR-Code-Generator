@@ -13,10 +13,14 @@ export async function GET(req: NextRequest) {
 
         const participantsRef = adminDb.collection('participants');
 
+        console.log(`FETCHING DETAILS: eventId=${eventId}, meal=${meal}`);
+
         // Query ALL participants for the event (removed meal filter)
         const snapshot = await participantsRef
             .where('event_id', '==', eventId)
             .get();
+
+        console.log(`FETCH DETAILS: Found ${snapshot.size} participants for event ${eventId}`);
 
         const participants = snapshot.docs.map(doc => {
             const data = doc.data();
@@ -35,6 +39,8 @@ export async function GET(req: NextRequest) {
                     : '-'
             };
         });
+
+        console.log(`FETCH DETAILS: Mapped ${participants.length} participants.`);
 
         // Sort: Served first, then by name
         participants.sort((a, b) => {

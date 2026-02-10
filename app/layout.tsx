@@ -32,7 +32,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <DevToolsHider />
-        {children}
+        <div className="min-h-screen flex flex-col">
+          <main className="flex-1">{children}</main>
+          <footer className="w-full py-3 text-center text-xs text-gray-400 bg-gray-50 border-t border-gray-100">
+            Developed by <span className="font-semibold text-gray-600">BHARAT HARI S</span> — AIML
+          </footer>
+        </div>
       </body>
     </html>
   );

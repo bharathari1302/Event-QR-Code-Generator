@@ -19,6 +19,8 @@ export default function ManageEventPage({ params }: { params: { id: string } }) 
     const [subEventName, setSubEventName] = useState(''); // New State
     const [uploading, setUploading] = useState(false);
     const [status, setStatus] = useState<{ type: 'success' | 'error' | ''; msg: string }>({ type: '', msg: '' });
+    interface ProgressState { current: number; total: number; success: number; failed: number; }
+    const [progress, setProgress] = useState<ProgressState>({ current: 0, total: 1, success: 0, failed: 0 }); // New Progress State
 
     // PDF Generation State
     const [pdfPurpose, setPdfPurpose] = useState<'event' | 'hostel'>('event');
@@ -257,6 +259,25 @@ export default function ManageEventPage({ params }: { params: { id: string } }) 
                             )}
                         </div>
 
+                        {/* Progress Bar UI */}
+                        {uploading && status.type !== 'error' && (
+                            <div className="mb-4">
+                                <div className="flex justify-between text-sm text-gray-600 mb-1">
+                                    <span>Sending Emails...</span>
+                                    <span>{Math.round((progress.current / progress.total) * 100) || 0}%</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                                    <div
+                                        className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                                        style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                                    ></div>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1 text-center">
+                                    Processed {progress.current} of {progress.total} | Success: {progress.success} | Failed: {progress.failed}
+                                </p>
+                            </div>
+                        )}
+
                         <button
                             onClick={async () => {
                                 // Validation
@@ -270,7 +291,9 @@ export default function ManageEventPage({ params }: { params: { id: string } }) 
                                 }
 
                                 setUploading(true);
-                                setStatus({ type: '', msg: 'Sending emails... This may take a while.' });
+                                setStatus({ type: '', msg: '' });
+                                setProgress({ current: 0, total: 100, success: 0, failed: 0 }); // Init with dummy total
+
                                 try {
                                     const res = await fetch('/api/email/send', {
                                         method: 'POST',
@@ -283,11 +306,50 @@ export default function ManageEventPage({ params }: { params: { id: string } }) 
                                             eventDate
                                         })
                                     });
-                                    const data = await res.json();
-                                    setStatus({
-                                        type: data.success ? 'success' : 'error',
-                                        msg: data.message || (data.success ? 'Emails sent.' : 'No pending emails.')
-                                    });
+
+                                    if (!res.body) throw new Error('ReadableStream not supported.');
+
+                                    const reader = res.body.getReader();
+                                    const decoder = new TextDecoder();
+                                    let buffer = '';
+
+                                    while (true) {
+                                        const { done, value } = await reader.read();
+                                        if (done) break;
+
+                                        const chunk = decoder.decode(value, { stream: true });
+                                        buffer += chunk;
+
+                                        const lines = buffer.split('\n');
+                                        // Keep the last part in buffer (it might be incomplete)
+                                        buffer = lines.pop() || '';
+
+                                        for (const line of lines) {
+                                            if (!line.trim()) continue;
+                                            try {
+                                                const data = JSON.parse(line);
+
+                                                if (data.status === 'started') {
+                                                    setProgress((prev: ProgressState) => ({ ...prev, total: data.total }));
+                                                } else if (data.status === 'progress') {
+                                                    setProgress((prev: ProgressState) => ({
+                                                        ...prev,
+                                                        current: data.processed,
+                                                        total: data.total,
+                                                        success: data.success,
+                                                        failed: data.failed
+                                                    }));
+                                                } else if (data.status === 'completed') {
+                                                    setStatus({ type: 'success', msg: data.message });
+                                                } else if (data.error) {
+                                                    throw new Error(data.error);
+                                                }
+                                            } catch (e) {
+                                                console.error('Error parsing chunk', e);
+                                            }
+                                        }
+                                    }
+
                                 } catch (e: any) {
                                     setStatus({ type: 'error', msg: e.message });
                                 } finally {
@@ -296,10 +358,10 @@ export default function ManageEventPage({ params }: { params: { id: string } }) 
                             }}
                             disabled={uploading}
                             className={`w-full py-3 px-6 rounded-lg text-white font-semibold flex items-center justify-center gap-2
-                ${uploading ? 'bg-purple-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 shadow-md hover:shadow-lg transition-all'}
+                ${uploading ? 'bg-purple-200 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 shadow-md hover:shadow-lg transition-all'}
                 `}
                         >
-                            {uploading ? <FaSpinner className="animate-spin" /> : 'Send Pending Invitations'}
+                            {uploading ? <FaSpinner className="animate-spin text-purple-600" /> : 'Send Pending Invitations'}
                         </button>
                         <p className="text-xs text-gray-500 mt-2 text-center">
                             Note: Emails are sent only to participants with status "Generated".

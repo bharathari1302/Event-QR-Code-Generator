@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
+import { getPhotoUrlByRollNo } from '@/lib/googleDriveHelper';
 
 export async function POST(req: NextRequest) {
     try {
@@ -20,6 +21,12 @@ export async function POST(req: NextRequest) {
         const doc = snapshot.docs[0];
         const data = doc.data();
 
+        // Fetch photo URL from Google Drive based on roll number
+        // const photoUrl = await getPhotoUrlByRollNo(data.rollNo);
+        // Use proxy URL to bypass browser blocking
+        const driveUrl = await getPhotoUrlByRollNo(data.rollNo);
+        const photoUrl = driveUrl ? `/api/photos/proxy?rollNo=${data.rollNo}` : null;
+
         // Check Status
         if (data.status === 'used') {
             return NextResponse.json({
@@ -30,6 +37,8 @@ export async function POST(req: NextRequest) {
                     college: data.college,
                     event_name: data.event_name,
                     ticket_id: data.ticket_id,
+                    rollNo: data.rollNo,
+                    photoUrl: photoUrl,
                     check_in_time: data.check_in_time?.toDate().toLocaleString() || 'Unknown'
                 },
                 message: 'Already Checked In'
@@ -50,6 +59,8 @@ export async function POST(req: NextRequest) {
                 college: data.college,
                 event_name: data.event_name,
                 ticket_id: data.ticket_id,
+                rollNo: data.rollNo,
+                photoUrl: photoUrl,
             },
             message: 'Verified Successfully'
         });

@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FaSync, FaUtensils, FaLeaf, FaDrumstickBite, FaUsers } from 'react-icons/fa';
+import { FaSync, FaUtensils, FaLeaf, FaDrumstickBite, FaUsers, FaFilePdf, FaTimes } from 'react-icons/fa';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 type Stats = {
     [key: string]: number;
@@ -137,20 +139,56 @@ export default function WardenDashboard() {
                     ))}
                 </div>
 
-                <DetailedView eventId={selectedEventId} />
+                <DetailedView eventId={selectedEventId} eventName={events.find(e => e.id === selectedEventId)?.name || 'Event'} />
             </div>
         </div>
     );
 }
 
-function DetailedView({ eventId }: { eventId: string }) {
+function DetailedView({ eventId, eventName }: { eventId: string, eventName: string }) {
     const [selectedMeal, setSelectedMeal] = useState('breakfast');
     const [participants, setParticipants] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
+    // PENDING is "Not Served" in UI usually, but data is likely "Pending" or undefined?
+    // Let's check existing logic: 
+    // const statusMatch = filterStatus === 'ALL' || p.status === filterStatus; 
+    // And p.status is "Served" or "Pending"? 
+    // In db, status is usually "generated" (which means pending for food?) or "served".
+    // Wait, let's check standard status. 
+    // In `DetailedView`, status is displayed as p.status. 
+    // Let's assume values are 'Served' and... something else. 
+    // Previous code: `p.status === 'Served' ? ... : ...`. 
+    // And `filterStatus` has options 'Served', 'Pending'.
+    // If Status is "generated" in DB, the API might map it. 
+    // Let's look at `api/stats/details`.
+    // Actually, looking at `ClientPage.tsx` mapping:
+    // `p.status` defines the color.
+    // Let's stick to the values used in the UI filter: 'Served', 'Pending'.
+
+    // PDF Generation State
+    const [showPdfModal, setShowPdfModal] = useState(false);
+    const [selectedColumns, setSelectedColumns] = useState<string[]>([
+        'S.No', 'Student Name', 'Roll No', 'Room No', 'Food Pref', 'Status', 'Check-in Time'
+    ]);
+    // New: Status Filter for PDF
+    const [pdfFilterStatuses, setPdfFilterStatuses] = useState<string[]>(['Served', 'Pending']);
+
+    const availableColumns = [
+        'S.No', 'Student Name', 'Roll No', 'Room No', 'Food Pref', 'Status', 'Check-in Time'
+    ];
+
     // Filter States
     const [filterFood, setFilterFood] = useState('ALL'); // ALL, Veg, Non Veg
-    const [filterStatus, setFilterStatus] = useState('Served'); // ALL, Served, Pending
+    const [filterStatus, setFilterStatus] = useState('ALL'); // ALL, Served, Pending
+
+    const toggleColumn = (col: string) => {
+        if (selectedColumns.includes(col)) {
+            setSelectedColumns(selectedColumns.filter(c => c !== col));
+        } else {
+            setSelectedColumns([...selectedColumns, col]);
+        }
+    };
 
     // Polling for Details
     useEffect(() => {
@@ -191,13 +229,89 @@ function DetailedView({ eventId }: { eventId: string }) {
         return foodMatch && statusMatch;
     });
 
+    const togglePdfStatus = (status: string) => {
+        if (pdfFilterStatuses.includes(status)) {
+            setPdfFilterStatuses(pdfFilterStatuses.filter(s => s !== status));
+        } else {
+            setPdfFilterStatuses([...pdfFilterStatuses, status]);
+        }
+    };
+
+    const generatePdf = () => {
+        const doc = new jsPDF();
+
+        // 1. Filter Data based on PDF selections (regardless of view filter, or combined?)
+        // User likely wants to export based on the modal selection primarily.
+        // But should we respect the "Food" filter from the main view? Yes, likely.
+        // So: Filter by current `filterFood` AND `pdfFilterStatuses`.
+
+        const pdfData = participants.filter(p => {
+            const foodMatch = filterFood === 'ALL' ||
+                (filterFood === 'Veg' && p.foodPreference.toLowerCase().includes('veg') && !p.foodPreference.toLowerCase().includes('non')) ||
+                (filterFood === 'Non Veg' && p.foodPreference.toLowerCase().includes('non'));
+
+            // Status match based on the checkboxes
+            // We assume p.status matches 'Served' or 'Pending' (or whatever isn't Served).
+            // Let's normalize: if p.status is 'Served', match 'Served'. Else match 'Pending'.
+            const pStatus = p.status === 'Served' ? 'Served' : 'Pending';
+            const statusMatch = pdfFilterStatuses.includes(pStatus);
+
+            return foodMatch && statusMatch;
+        });
+
+        // Title
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text(eventName, 14, 22);
+
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+
+        // Subtitle logic
+        const statusText = pdfFilterStatuses.length === 2 ? 'All Statuses' : pdfFilterStatuses.join(', ');
+        doc.text(`Meal: ${selectedMeal.toUpperCase()} | Status: ${statusText.toUpperCase()}`, 14, 30);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 36);
+
+        // Prepare Data
+        const tableBody = pdfData.map((p, index) => {
+            const row: any[] = [];
+            if (selectedColumns.includes('S.No')) row.push(index + 1);
+            if (selectedColumns.includes('Student Name')) row.push(p.name);
+            if (selectedColumns.includes('Roll No')) row.push(p.rollNo);
+            if (selectedColumns.includes('Room No')) row.push(p.roomNo);
+            if (selectedColumns.includes('Food Pref')) row.push(p.foodPreference);
+            if (selectedColumns.includes('Status')) row.push(p.status);
+            if (selectedColumns.includes('Check-in Time')) row.push(p.timestamp || '-');
+            return row;
+        });
+
+        autoTable(doc, {
+            head: [selectedColumns],
+            body: tableBody,
+            startY: 42,
+            styles: { fontSize: 10 },
+            headStyles: { fillColor: [30, 41, 59], fontStyle: 'bold' }, // Slate-800
+        });
+
+        doc.save(`Event_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+        setShowPdfModal(false);
+    };
+
     return (
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden relative">
             <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
-                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <FaUsers className="text-blue-600" />
-                    Live Detailed Log
-                </h2>
+                <div className="flex items-center gap-4">
+                    <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                        <FaUsers className="text-blue-600" />
+                        Live Detailed Log
+                    </h2>
+                    <button
+                        onClick={() => setShowPdfModal(true)}
+                        className="bg-red-600 text-white px-3 py-1 rounded text-sm font-bold flex items-center gap-1 hover:bg-red-700 transition-colors shadow-sm"
+                    >
+                        <FaFilePdf /> PDF
+                    </button>
+                </div>
 
                 <div className="flex flex-wrap md:flex-nowrap gap-4 items-center w-full md:w-auto">
                     {/* Filters */}
@@ -229,10 +343,10 @@ function DetailedView({ eventId }: { eventId: string }) {
                                 key={meal}
                                 onClick={() => setSelectedMeal(meal)}
                                 className={`px-4 py-2 rounded-lg text-sm font-bold uppercase transition-all whitespace-nowrap
-                                    ${selectedMeal === meal
+                                        ${selectedMeal === meal
                                         ? 'bg-slate-800 text-white shadow-md'
                                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}
-                                `}
+                                    `}
                             >
                                 {meal}
                             </button>
@@ -273,20 +387,20 @@ function DetailedView({ eventId }: { eventId: string }) {
                                             <span className="text-gray-400 text-sm">-</span>
                                         ) : (
                                             <span className={`px-2 py-1 rounded text-xs font-bold
-                                                ${p.foodPreference.toLowerCase().includes('veg') && !p.foodPreference.toLowerCase().includes('non')
+                                                    ${p.foodPreference.toLowerCase().includes('veg') && !p.foodPreference.toLowerCase().includes('non')
                                                     ? 'bg-green-100 text-green-700'
                                                     : 'bg-red-100 text-red-700'}
-                                            `}>
+                                                `}>
                                                 {p.foodPreference}
                                             </span>
                                         )}
                                     </td>
                                     <td className="p-4">
                                         <span className={`px-2 py-1 rounded text-xs font-bold
-                                            ${p.status === 'Served'
+                                                ${p.status === 'Served'
                                                 ? 'bg-blue-100 text-blue-700'
                                                 : 'bg-yellow-100 text-yellow-700'}
-                                        `}>
+                                            `}>
                                             {p.status}
                                         </span>
                                     </td>
@@ -303,6 +417,78 @@ function DetailedView({ eventId }: { eventId: string }) {
             <div className="p-4 bg-gray-50 border-t border-gray-100 text-right text-xs text-gray-400">
                 Displaying {filteredParticipants.length} records • Auto-refreshing
             </div>
+
+            {/* PDF Modal */}
+            {showPdfModal && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                            <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
+                                <FaFilePdf className="text-red-600" />
+                                Generate PDF Report
+                            </h3>
+                            <button onClick={() => setShowPdfModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                <FaTimes />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-6">
+
+                            {/* Status Selection */}
+                            <div>
+                                <h4 className="text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Select Status</h4>
+                                <div className="flex gap-4">
+                                    {['Served', 'Pending'].map(status => (
+                                        <label key={status} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer border-gray-200 hover:bg-gray-50 bg-white transition-all
+                                            ${pdfFilterStatuses.includes(status) ? 'ring-2 ring-blue-500 border-transparent' : ''}
+                                        `}>
+                                            <input
+                                                type="checkbox"
+                                                checked={pdfFilterStatuses.includes(status)}
+                                                onChange={() => togglePdfStatus(status)}
+                                                className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                                            />
+                                            <span className="text-sm font-medium text-gray-700">{status === 'Pending' ? 'Not Served' : status}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Column Selection */}
+                            <div>
+                                <h4 className="text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Select Columns</h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {availableColumns.map(col => (
+                                        <label key={col} className={`flex items-center gap-3 text-sm p-3 rounded-lg cursor-pointer border transition-all ${selectedColumns.includes(col) ? 'bg-blue-50 border-blue-200 text-blue-700 font-medium' : 'hover:bg-gray-50 border-gray-100 text-gray-600'}`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedColumns.includes(col)}
+                                                onChange={() => toggleColumn(col)}
+                                                className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 border-gray-300"
+                                            />
+                                            {col}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-4 bg-gray-50 flex justify-end gap-3 border-t">
+                            <button
+                                onClick={() => setShowPdfModal(false)}
+                                className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={generatePdf}
+                                disabled={selectedColumns.length === 0 || pdfFilterStatuses.length === 0}
+                                className="px-5 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-all active:scale-95"
+                            >
+                                <FaFilePdf /> Download Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

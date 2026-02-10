@@ -5,33 +5,48 @@ export async function GET(req: NextRequest) {
     try {
         const { searchParams } = new URL(req.url);
         const eventId = searchParams.get('eventId');
-        const type = searchParams.get('type') || 'live_dashboard'; // 'live_dashboard' or specific
 
         if (!eventId) {
-            // For now, if no eventId, maybe fetch all loops or just return error.
-            // Let's try to fetch all active events or just return empty if strictly required.
-            // For MVP, if single event, we might hardcode or list them.
-            // But let's assume the warden selects an event or we pass it.
-            // fallback: return params error
             return NextResponse.json({ error: 'Event ID required' }, { status: 400 });
         }
 
-        const docRef = adminDb.collection('events').doc(eventId).collection('stats').doc(type);
-        const doc = await docRef.get();
+        // Dynamically calculate stats from actual participant data
+        // This ensures stats are always accurate, even if participants are deleted
+        const participantsRef = adminDb.collection('participants');
+        const snapshot = await participantsRef
+            .where('event_id', '==', eventId)
+            .get();
 
-        if (!doc.exists) {
-            return NextResponse.json({
-                stats: {
-                    total_breakfast: 0, veg_breakfast: 0, nonveg_breakfast: 0,
-                    total_lunch: 0, veg_lunch: 0, nonveg_lunch: 0,
-                    total_snacks: 0, veg_snacks: 0, nonveg_snacks: 0,
-                    total_dinner: 0, veg_dinner: 0, nonveg_dinner: 0,
-                    total_icecream: 0, veg_icecream: 0, nonveg_icecream: 0,
-                }
-            });
+        const meals = ['breakfast', 'lunch', 'snacks', 'dinner', 'icecream'];
+        const stats: { [key: string]: number } = {};
+
+        // Initialize all counters to 0
+        for (const meal of meals) {
+            stats[`total_${meal}`] = 0;
+            stats[`veg_${meal}`] = 0;
+            stats[`nonveg_${meal}`] = 0;
         }
 
-        return NextResponse.json({ stats: doc.data() });
+        // Count from actual participant data
+        snapshot.docs.forEach(doc => {
+            const data = doc.data();
+            const tokenUsage = data.tokenUsage || {};
+            const isVeg = data.foodPreference?.toLowerCase().includes('veg') &&
+                !data.foodPreference?.toLowerCase().includes('non');
+
+            for (const meal of meals) {
+                if (tokenUsage[meal] === true) {
+                    stats[`total_${meal}`]++;
+                    if (isVeg) {
+                        stats[`veg_${meal}`]++;
+                    } else {
+                        stats[`nonveg_${meal}`]++;
+                    }
+                }
+            }
+        });
+
+        return NextResponse.json({ stats });
 
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });

@@ -110,7 +110,21 @@ export async function POST(req: NextRequest) {
                 // Extract values using the found keys
                 const foodPreference = (foodKey && row[foodKey]) ? row[foodKey].toString().trim() : 'Not Specified';
                 const roomNo = (roomKey && row[roomKey]) ? row[roomKey].toString().trim() : null;
-                const rollNo = (rollKey && row[rollKey]) ? row[rollKey].toString().trim() : null;
+
+                // Try to extract rollNo from the found key, or fallback to direct access
+                let rollNo: string | null = (rollKey && row[rollKey]) ? row[rollKey].toString().trim() : null;
+
+                // If not found, try direct access to common roll number column names
+                if (!rollNo) {
+                    const directRollKeys = ['Roll No', 'Roll Number', 'Reg No', 'Register Number', 'RollNo', 'RegNo'];
+                    for (const key of directRollKeys) {
+                        if (row[key]) {
+                            rollNo = row[key].toString().trim();
+                            break;
+                        }
+                    }
+                }
+
                 const college = (collegeKey && row[collegeKey]) ? row[collegeKey].toString().trim() : '';
 
                 batch.set(docRef, {
