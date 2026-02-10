@@ -8,7 +8,7 @@ import Link from 'next/link';
 // NOTE: In Next.js App Router, dynamic pages receive params as props.
 // But for client components, we can use useParams() or props.
 
-export default function ManageEventPage({ params }: { params: { id: string } }) {
+export default function ManageEventPage() {
     // Direct params access in page component (async in newer Next.js versions, but basic props work)
     // Let's use unwrapped approach to be safe or useParams if it's a client component.
 
