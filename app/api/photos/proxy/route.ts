@@ -5,13 +5,26 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const rollNo = searchParams.get('rollNo');
 
+    const eventId = searchParams.get('eventId');
+
     if (!rollNo) {
         return new NextResponse('No roll number provided', { status: 400 });
     }
 
     try {
+        // Get event-specific folder ID if eventId is provided
+        let driveFolderId: string | undefined;
+        if (eventId) {
+            // Lazy load adminDb to avoid circular dependencies if any (though unlikely here)
+            const { adminDb } = await import('@/lib/firebaseAdmin');
+            const eventDoc = await adminDb.collection('events').doc(eventId).get();
+            if (eventDoc.exists) {
+                driveFolderId = eventDoc.data()?.driveFolderId;
+            }
+        }
+
         // Get the actual Google Drive URL
-        const driveUrl = await getPhotoUrlByRollNo(rollNo);
+        const driveUrl = await getPhotoUrlByRollNo(rollNo, driveFolderId);
 
         if (!driveUrl) {
             return new NextResponse('Photo not found', { status: 404 });

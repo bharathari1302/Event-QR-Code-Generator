@@ -27,10 +27,17 @@ export async function POST(req: NextRequest) {
         const docRef = doc.ref;
 
         // Fetch photo URL from Google Drive based on roll number
-        // const photoUrl = await getPhotoUrlByRollNo(data.rollNo);
-        // Use proxy URL to bypass browser blocking
-        const driveUrl = await getPhotoUrlByRollNo(data.rollNo);
-        const photoUrl = driveUrl ? `/api/photos/proxy?rollNo=${data.rollNo}` : null;
+        // Check for event-specific drive folder
+        let driveFolderId: string | undefined;
+        if (data.event_id) {
+            const eventDoc = await adminDb.collection('events').doc(data.event_id).get();
+            if (eventDoc.exists) {
+                driveFolderId = eventDoc.data()?.driveFolderId;
+            }
+        }
+
+        const driveUrl = await getPhotoUrlByRollNo(data.rollNo, driveFolderId);
+        const photoUrl = driveUrl ? `/api/photos/proxy?rollNo=${data.rollNo}&eventId=${data.event_id || ''}` : null;
 
         // 2. Check Usage
         // Ensure tokenUsage object exists

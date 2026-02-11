@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation'; // Correct hook for app directory
-import { FaCloudUploadAlt, FaFileExcel, FaSpinner, FaArrowLeft } from 'react-icons/fa';
+import { FaCloudUploadAlt, FaFileExcel, FaSpinner, FaArrowLeft, FaLink, FaCheck } from 'react-icons/fa';
 import Link from 'next/link';
 
 // NOTE: In Next.js App Router, dynamic pages receive params as props.
@@ -17,6 +17,8 @@ export default function ManageEventPage() {
     const [file, setFile] = useState<File | null>(null);
     const [eventName, setEventName] = useState('Loading...');
     const [subEventName, setSubEventName] = useState(''); // New State
+    const [driveLink, setDriveLink] = useState('');
+    const [savingLink, setSavingLink] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [status, setStatus] = useState<{ type: 'success' | 'error' | ''; msg: string }>({ type: '', msg: '' });
     interface ProgressState { current: number; total: number; success: number; failed: number; }
@@ -33,8 +35,43 @@ export default function ManageEventPage() {
         // Ideally fetch event details here using eventId
         // For now, we will just set a placeholder or fetch if we had a single event endpoint
         // Simple mock for display:
-        if (eventId) setEventName(`Event ID: ${eventId}`);
+        if (eventId) {
+            setEventName(`Event ID: ${eventId}`);
+
+            // Fetch drive folder link
+            fetch(`/api/events/drive-folder?eventId=${eventId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.driveFolderLink) {
+                        setDriveLink(data.driveFolderLink);
+                    }
+                })
+                .catch(err => console.error('Failed to fetch drive link', err));
+        }
     }, [eventId]);
+
+    const saveDriveFolder = async () => {
+        if (!eventId) return;
+        setSavingLink(true);
+        try {
+            const res = await fetch('/api/events/drive-folder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ eventId, driveUrl: driveLink })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setStatus({ type: 'success', msg: data.message });
+                setDriveLink(data.driveFolderLink || driveLink);
+            } else {
+                setStatus({ type: 'error', msg: data.error });
+            }
+        } catch (error: any) {
+            setStatus({ type: 'error', msg: error.message });
+        } finally {
+            setSavingLink(false);
+        }
+    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -104,6 +141,38 @@ export default function ManageEventPage() {
                         />
                         <p className="text-xs text-gray-500 mt-1">
                             Use this if you are uploading participants for a specific competition within the symposium.
+                        </p>
+                    </div>
+
+                    {/* Google Drive Photo Folder */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Google Drive Photo Folder Link
+                        </label>
+                        <div className="flex gap-2">
+                            <div className="relative flex-grow">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <FaLink className="text-gray-400" />
+                                </div>
+                                <input
+                                    type="text"
+                                    placeholder="https://drive.google.com/drive/folders/..."
+                                    className="w-full pl-10 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    value={driveLink}
+                                    onChange={(e) => setDriveLink(e.target.value)}
+                                />
+                            </div>
+                            <button
+                                onClick={saveDriveFolder}
+                                disabled={savingLink}
+                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition-colors flex items-center gap-2"
+                            >
+                                {savingLink ? <FaSpinner className="animate-spin" /> : <FaCheck />}
+                                Save
+                            </button>
+                        </div>
+                        <p className="text-xs text-amber-600 mt-1 font-medium bg-amber-50 p-2 rounded border border-amber-200">
+                            IMPORTANT: The folder must be shared as "Anyone with the link" (Public) for the system to access the photos.
                         </p>
                     </div>
 

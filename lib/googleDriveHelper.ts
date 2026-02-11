@@ -3,12 +3,16 @@
  * Manages photo access from Google Drive folder for participant verification
  */
 
-// Google Drive folder ID from environment
-const DRIVE_FOLDER_ID = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_FOLDER_ID || '1PK7i7LfBJYwwjGh95JzCvN6l8YDetHJvZsHu3fUvwkKSb5tjfOZ0UK7JyeWT0YZAJ6UHbwnp';
+// Google Drive folder ID from environment (Default fallback)
+const DEFAULT_DRIVE_FOLDER_ID = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_FOLDER_ID || '1PK7i7LfBJYwwjGh95JzCvN6l8YDetHJvZsHu3fUvwkKSb5tjfOZ0UK7JyeWT0YZAJ6UHbwnp';
 
-// In-memory cache for roll number to file ID mapping
-let photoCache: Map<string, string> | null = null;
-let cacheTimestamp: number = 0;
+// Multi-folder cache: Map<FolderID, CacheEntry>
+interface CacheEntry {
+    map: Map<string, string>;
+    timestamp: number;
+}
+
+const caches = new Map<string, CacheEntry>();
 const CACHE_DURATION = 1000 * 60 * 60; // 1 hour
 
 interface DriveFile {
@@ -20,7 +24,7 @@ interface DriveFile {
  * Fetches the list of files from Google Drive folder
  * Uses the public folder sharing URL to access file list
  */
-async function fetchPhotoList(): Promise<DriveFile[]> {
+async function fetchPhotoList(folderId: string): Promise<DriveFile[]> {
     try {
         // Use Google Drive API v3 public endpoint to list files in folder
         const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
@@ -30,7 +34,7 @@ async function fetchPhotoList(): Promise<DriveFile[]> {
             return [];
         }
 
-        const url = `https://www.googleapis.com/drive/v3/files?q='${DRIVE_FOLDER_ID}'+in+parents&key=${apiKey}&fields=files(id,name)`;
+        const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${apiKey}&fields=files(id,name)`;
 
         const response = await fetch(url);
 
@@ -41,7 +45,7 @@ async function fetchPhotoList(): Promise<DriveFile[]> {
         const data = await response.json();
         return data.files || [];
     } catch (error) {
-        console.error('Error fetching photo list from Google Drive:', error);
+        console.error(`Error fetching photo list from Google Drive (Folder: ${folderId}):`, error);
         return [];
     }
 }
@@ -58,55 +62,79 @@ function extractRollNoFromFilename(filename: string): string | null {
     // Remove file extension
     const nameWithoutExt = filename.replace(/\.(jpg|jpeg|png|webp)$/i, '');
 
-    // Try to extract roll number - look for alphanumeric pattern at the start
+    // 1. Try to extract roll number at the start
     // Supports formats like: "24ALR004", "12345", "ALR004", etc.
-    const match = nameWithoutExt.match(/^([A-Z0-9]+)/i);
+    const startMatch = nameWithoutExt.match(/^([A-Z0-9]{5,})/i);
+    if (startMatch) {
+        return startMatch[1].toUpperCase();
+    }
 
-    if (match) {
-        return match[1].toUpperCase();
+    // 2. If not found at start, try to extract from the END
+    // Supports formats like: "IMG-20250318-WA0054 - ADITHYA T 24CDR007"
+    // Look for alphanumeric code at the end, possibly preceded by spaces or dashes
+    const endMatch = nameWithoutExt.match(/[\s-_]([A-Z0-9]{5,})$/i);
+    if (endMatch) {
+        return endMatch[1].toUpperCase();
+    }
+
+    // 3. Fallback: Try looser match at start if specific length check failed
+    const looseStartMatch = nameWithoutExt.match(/^([A-Z0-9]+)/i);
+    if (looseStartMatch) {
+        return looseStartMatch[1].toUpperCase();
     }
 
     return null;
 }
 
 /**
- * Builds the cache of roll numbers to file IDs
+ * Builds the cache of roll numbers to file IDs for a specific folder
  */
-async function buildPhotoCache(): Promise<void> {
-    const files = await fetchPhotoList();
-    const newCache = new Map<string, string>();
+async function buildPhotoCache(folderId: string): Promise<void> {
+    const files = await fetchPhotoList(folderId);
+    const newMap = new Map<string, string>();
 
     files.forEach(file => {
         const rollNo = extractRollNoFromFilename(file.name);
         if (rollNo) {
-            newCache.set(rollNo, file.id);
+            newMap.set(rollNo, file.id);
         }
     });
 
-    photoCache = newCache;
-    cacheTimestamp = Date.now();
+    caches.set(folderId, {
+        map: newMap,
+        timestamp: Date.now()
+    });
 
-    console.log(`Photo cache built with ${newCache.size} entries`);
+    console.log(`Photo cache built for folder ${folderId} with ${newMap.size} entries`);
 }
 
 /**
  * Gets the photo URL for a given roll number
  * Returns null if photo not found
+ * @param rollNo The participant's roll number
+ * @param eventFolderId Optional specific folder ID for this event. detailed default env var used if not provided.
  */
-export async function getPhotoUrlByRollNo(rollNo: string | null | undefined): Promise<string | null> {
+export async function getPhotoUrlByRollNo(rollNo: string | null | undefined, eventFolderId?: string): Promise<string | null> {
     if (!rollNo) {
         return null;
     }
 
-    // Refresh cache if expired or not initialized
-    if (!photoCache || Date.now() - cacheTimestamp > CACHE_DURATION) {
-        await buildPhotoCache();
+    // Determine which folder to use
+    const folderId = eventFolderId || DEFAULT_DRIVE_FOLDER_ID;
+
+    // Get cache entry for this folder
+    let cache = caches.get(folderId);
+
+    // Refresh cache if not exists or expired
+    if (!cache || Date.now() - cache.timestamp > CACHE_DURATION) {
+        await buildPhotoCache(folderId);
+        cache = caches.get(folderId);
     }
 
-    const fileId = photoCache?.get(rollNo);
+    const fileId = cache?.map.get(rollNo);
 
     if (!fileId) {
-        console.log(`No photo found for roll number: ${rollNo}`);
+        // console.log(`No photo found for roll number: ${rollNo} in folder ${folderId}`);
         return null;
     }
 
@@ -127,20 +155,24 @@ export async function validatePhotoUrl(url: string): Promise<boolean> {
 }
 
 /**
- * Manually refreshes the photo cache
- * Call this when new photos are added to the Drive folder
+ * Manually refreshes the photo cache for a specific folder (or default)
  */
-export async function refreshPhotoCache(): Promise<void> {
-    await buildPhotoCache();
+export async function refreshPhotoCache(eventFolderId?: string): Promise<void> {
+    const folderId = eventFolderId || DEFAULT_DRIVE_FOLDER_ID;
+    await buildPhotoCache(folderId);
 }
 
 /**
  * Gets cache statistics for debugging
  */
 export function getCacheStats() {
+    // Return stats for all caches combined or just a summary
     return {
-        size: photoCache?.size || 0,
-        age: photoCache ? Date.now() - cacheTimestamp : 0,
-        isValid: photoCache !== null && Date.now() - cacheTimestamp < CACHE_DURATION
+        totalFolders: caches.size,
+        folders: Array.from(caches.keys()).map(k => ({
+            folderId: k,
+            size: caches.get(k)?.map.size || 0,
+            age: Date.now() - (caches.get(k)?.timestamp || 0)
+        }))
     };
 }
