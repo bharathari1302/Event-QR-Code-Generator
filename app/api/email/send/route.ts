@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
             try {
                 // 1. Query participants
                 const participantsRef = adminDb.collection('participants');
-                const snapshot = await participantsRef.where('status', '==', 'generated').limit(200).get();
+                const snapshot = await participantsRef.where('status', '==', 'generated').limit(450).get();
 
                 if (snapshot.empty) {
                     controller.enqueue(encoder.encode(JSON.stringify({ message: 'No pending invitations found.', done: true }) + '\n'));

@@ -33,7 +33,7 @@ export async function sendEmail({ to, subject, text, html, attachments }: EmailO
     try {
         console.log(`Attempting to send email to ${to} from ${process.env.EMAIL_USER}...`);
         const info = await transporter.sendMail({
-            from: `"Event Team" <${process.env.EMAIL_USER}>`,
+            from: `"KEC - Valluvar Hostel" <${process.env.EMAIL_USER}>`,
             to,
             subject,
             text,
