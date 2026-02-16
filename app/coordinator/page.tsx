@@ -33,7 +33,27 @@ export default function CoordinatorScannerPage() {
         scanner.render(
             async (decodedText) => {
                 try {
-                    const data = JSON.parse(decodedText);
+                    // Try to parse as JSON
+                    let data;
+                    try {
+                        data = JSON.parse(decodedText);
+                    } catch (parseError) {
+                        // If it's not JSON, maybe it's just a Roll No
+                        setError('Invalid QR Code format. Expected JSON with participant details.');
+                        setScanResult(null);
+                        scanner.clear();
+                        setScanning(false);
+                        return;
+                    }
+
+                    // Validate required fields
+                    if (!data.rollNo || !data.eventId) {
+                        setError('QR Code missing required fields (rollNo or eventId)');
+                        setScanResult(null);
+                        scanner.clear();
+                        setScanning(false);
+                        return;
+                    }
 
                     // Verify the participant
                     const res = await fetch('/api/participants/verify', {
@@ -56,7 +76,7 @@ export default function CoordinatorScannerPage() {
                         setScanResult(null);
                     }
                 } catch (err: any) {
-                    setError('Invalid QR Code: ' + err.message);
+                    setError('Error verifying participant: ' + err.message);
                     setScanResult(null);
                 }
 
@@ -64,7 +84,7 @@ export default function CoordinatorScannerPage() {
                 setScanning(false);
             },
             (errorMessage) => {
-                // Ignore scanning errors (they happen continuously)
+                // Ignore continuous scanning errors
             }
         );
 
