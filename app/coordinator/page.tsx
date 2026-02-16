@@ -7,7 +7,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
 export default function CoordinatorScannerPage() {
-    const { user, role, department, loading } = useAuth();
+    const { user, role, department, loading, logout } = useAuth();
     const router = useRouter();
     const [scanning, setScanning] = useState(false);
     const [scanResult, setScanResult] = useState<any>(null);
@@ -151,6 +151,17 @@ export default function CoordinatorScannerPage() {
                             <p className="text-red-700">{error}</p>
                         </div>
                     )}
+
+                    {/* Logout Button */}
+                    <button
+                        onClick={() => logout()}
+                        className="w-full mt-6 bg-gray-600 hover:bg-gray-700 text-white py-3 px-6 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Sign Out
+                    </button>
                 </div>
             </div>
         </div>
