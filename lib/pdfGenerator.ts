@@ -11,6 +11,7 @@ interface Participant {
     foodPreference?: string; // New
     roomNo?: string;         // New
     rollNo?: string;         // New - Added to interface
+    eventId?: string;        // Event ID for verification
 }
 
 interface PDFOptions {
@@ -112,8 +113,15 @@ export async function generateInvitationPDF(participant: Participant, options: P
 
 
         // --- Large QR Code ---
-        // Payload: TOKEN|MEAL_TYPE
-        const qrPayload = `${participant.token}|${meal.name.toLowerCase()}`;
+        // Payload: JSON with all verification data
+        const qrData = {
+            token: participant.token,
+            rollNo: participant.rollNo || '',
+            eventId: participant.eventId || participant.ticket_id,
+            name: participant.name,
+            mealType: meal.name.toLowerCase()
+        };
+        const qrPayload = JSON.stringify(qrData);
         const qrDataUrl = await QRCode.toDataURL(qrPayload, { width: 400, margin: 1 });
         doc.addImage(qrDataUrl, 'PNG', (pageWidth - 80) / 2, 140, 80, 80);
 

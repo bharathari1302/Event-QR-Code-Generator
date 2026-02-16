@@ -77,7 +77,8 @@ export async function POST(req: NextRequest) {
                                 token: p.token,
                                 foodPreference: p.foodPreference,
                                 roomNo: p.roomNo,
-                                rollNo: p.rollNo
+                                rollNo: p.rollNo,
+                                eventId: eventId
                             }, { singleMealName });
 
                             if (p.email) {
