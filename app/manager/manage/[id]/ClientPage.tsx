@@ -170,7 +170,7 @@ export default function ManageEventPage() {
 
                 // 2. Auto-Send Emails if enabled and participants added
                 if (autoSendEmails && count > 0) {
-                    setStatus({ type: 'info', msg: `${successMsg} Sending emails...` });
+                    setStatus({ type: '', msg: `${successMsg} Sending emails...` });
 
                     // We trigger the email API. Since it streams, we await the initial connection.
                     // For full feedback, we might want to read the stream, but for "Auto-Send" convenience, 
