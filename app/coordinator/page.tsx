@@ -33,37 +33,22 @@ export default function CoordinatorScannerPage() {
         scanner.render(
             async (decodedText) => {
                 try {
-                    // Try to parse as JSON
-                    let data;
-                    try {
-                        data = JSON.parse(decodedText);
-                    } catch (parseError) {
-                        // If it's not JSON, maybe it's just a Roll No
-                        setError('Invalid QR Code format. Expected JSON with participant details.');
+                    // QR code now contains just the ticket_id as a simple string
+                    const ticketId = decodedText.trim();
+
+                    if (!ticketId) {
+                        setError('Invalid QR Code: Empty ticket ID');
                         setScanResult(null);
                         scanner.clear();
                         setScanning(false);
                         return;
                     }
 
-                    // Validate required fields
-                    if (!data.rollNo || !data.eventId) {
-                        setError('QR Code missing required fields (rollNo or eventId)');
-                        setScanResult(null);
-                        scanner.clear();
-                        setScanning(false);
-                        return;
-                    }
-
-                    // Verify the participant
+                    // Verify the participant using ticket_id
                     const res = await fetch('/api/participants/verify', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            rollNo: data.rollNo,
-                            eventId: data.eventId,
-                            coordinatorDept: department
-                        })
+                        body: JSON.stringify({ ticketId })
                     });
 
                     const result = await res.json();

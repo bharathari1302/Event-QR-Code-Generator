@@ -113,19 +113,11 @@ export async function generateInvitationPDF(participant: Participant, options: P
 
 
         // --- Large QR Code ---
-        // Payload: JSON with all verification data
-        const qrData = {
-            token: participant.token,
-            rollNo: participant.rollNo || '',
-            eventId: participant.eventId || participant.ticket_id,
-            name: participant.name,
-            mealType: meal.name.toLowerCase()
-        };
-
+        // Store only the unique ticket_id for database lookup
+        // This is cleaner, more secure, and allows data updates without regenerating QR codes
         let qrDataUrl;
         try {
-            const qrPayload = JSON.stringify(qrData);
-            qrDataUrl = await QRCode.toDataURL(qrPayload, {
+            qrDataUrl = await QRCode.toDataURL(participant.ticket_id, {
                 width: 400,
                 margin: 1,
                 errorCorrectionLevel: 'M',
@@ -133,10 +125,9 @@ export async function generateInvitationPDF(participant: Participant, options: P
             });
         } catch (error) {
             console.error('QR Code generation error:', error);
-            // Fallback: Use simpler payload if JSON fails
+            // Fallback: Try with token if ticket_id fails
             try {
-                const fallbackPayload = `${participant.token}|${participant.rollNo || 'UNKNOWN'}`;
-                qrDataUrl = await QRCode.toDataURL(fallbackPayload, {
+                qrDataUrl = await QRCode.toDataURL(participant.token, {
                     width: 400,
                     margin: 1,
                     errorCorrectionLevel: 'M'
