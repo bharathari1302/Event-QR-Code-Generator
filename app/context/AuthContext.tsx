@@ -139,7 +139,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setRole('coordinator');
             setDepartment(userData.department);
 
-            router.push('/food-scanner');
+            router.push('/coordinator');
         } catch (error) {
             console.error("Coordinator Login Error", error);
             throw error;
