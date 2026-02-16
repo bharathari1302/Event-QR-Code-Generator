@@ -121,8 +121,31 @@ export async function generateInvitationPDF(participant: Participant, options: P
             name: participant.name,
             mealType: meal.name.toLowerCase()
         };
-        const qrPayload = JSON.stringify(qrData);
-        const qrDataUrl = await QRCode.toDataURL(qrPayload, { width: 400, margin: 1 });
+
+        let qrDataUrl;
+        try {
+            const qrPayload = JSON.stringify(qrData);
+            qrDataUrl = await QRCode.toDataURL(qrPayload, {
+                width: 400,
+                margin: 1,
+                errorCorrectionLevel: 'M',
+                type: 'image/png'
+            });
+        } catch (error) {
+            console.error('QR Code generation error:', error);
+            // Fallback: Use simpler payload if JSON fails
+            try {
+                const fallbackPayload = `${participant.token}|${participant.rollNo || 'UNKNOWN'}`;
+                qrDataUrl = await QRCode.toDataURL(fallbackPayload, {
+                    width: 400,
+                    margin: 1,
+                    errorCorrectionLevel: 'M'
+                });
+            } catch (fallbackError) {
+                console.error('Fallback QR generation also failed:', fallbackError);
+                throw new Error('Unable to generate QR code for invitation');
+            }
+        }
         doc.addImage(qrDataUrl, 'PNG', (pageWidth - 80) / 2, 140, 80, 80);
 
         doc.setFontSize(10);

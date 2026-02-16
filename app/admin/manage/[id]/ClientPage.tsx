@@ -117,6 +117,16 @@ export default function ManageEventPage() {
         }
     }, [eventId, user]);
 
+    // Auto-clear error messages after 10 seconds
+    useEffect(() => {
+        if (status.msg && status.type === 'error') {
+            const timer = setTimeout(() => {
+                setStatus({ type: '', msg: '' });
+            }, 10000);
+            return () => clearTimeout(timer);
+        }
+    }, [status]);
+
     const fetchCoordinators = async () => {
         if (!eventId) return;
         setFetchingCoordinators(true);
@@ -462,10 +472,21 @@ export default function ManageEventPage() {
 
             {/* Status Message */}
             {status.msg && (
-                <div className={`p-4 rounded-lg flex items-center gap-3 ${status.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+                <div className={`p-4 rounded-lg flex items-center gap-3 justify-between ${status.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
                     }`}>
-                    {status.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-                    <span className="font-medium">{status.msg}</span>
+                    <div className="flex items-center gap-3">
+                        {status.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                        <span className="font-medium">{status.msg}</span>
+                    </div>
+                    <button
+                        onClick={() => setStatus({ type: '', msg: '' })}
+                        className="text-gray-500 hover:text-gray-700 transition-colors"
+                        aria-label="Dismiss message"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
             )}
 
