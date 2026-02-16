@@ -48,14 +48,14 @@ export function parseParticipantRow(row: string[], headers: string[]) {
     const getIdx = (keywords: string[]) => headers.findIndex(h => keywords.some(k => h.includes(k)));
 
     const nameIdx = getIdx(['name', 'student name', 'participant']);
-    const emailIdx = getIdx(['email', 'mail']);
-    const rollNoIdx = getIdx(['roll', 'register', 'reg no']);
+    const emailIdx = getIdx(['email', 'mail', 'e-mail', 'kongu id']);
+    const rollNoIdx = getIdx(['roll', 'register', 'reg no', 'roll no']);
     const deptIdx = getIdx(['dept', 'department', 'branch']);
     const collegeIdx = getIdx(['college', 'institution']);
     const yearIdx = getIdx(['year']);
     const phoneIdx = getIdx(['phone', 'mobile', 'contact']);
-    const foodIdx = getIdx(['food', 'veg', 'preference']);
-    const roomIdx = getIdx(['room']);
+    const foodIdx = getIdx(['food', 'veg', 'preference', 'non veg']);
+    const roomIdx = getIdx(['room', 'room no']);
 
     if (nameIdx === -1) return null; // Name is mandatory
 
