@@ -375,7 +375,9 @@ export default function ManageEventPage() {
                     sheetId,
                     sheetName, // Optional
                     eventId,
-                    eventName
+                    eventName,
+                    syncSubType,
+                    syncMealName
                 })
             });
 

@@ -113,11 +113,13 @@ export async function generateInvitationPDF(participant: Participant, options: P
 
 
         // --- Large QR Code ---
-        // Store only the unique ticket_id for database lookup
-        // This is cleaner, more secure, and allows data updates without regenerating QR codes
+        // Store ticket_id AND meal name for instant verification
+        // Format: TICKET_ID|MEAL_NAME (e.g., INV-123456|breakfast)
+        let qrPayload = `${participant.ticket_id}|${meal.name.toLowerCase()}`;
+
         let qrDataUrl;
         try {
-            qrDataUrl = await QRCode.toDataURL(participant.ticket_id, {
+            qrDataUrl = await QRCode.toDataURL(qrPayload, {
                 width: 400,
                 margin: 1,
                 errorCorrectionLevel: 'M',
@@ -125,9 +127,10 @@ export async function generateInvitationPDF(participant: Participant, options: P
             });
         } catch (error) {
             console.error('QR Code generation error:', error);
-            // Fallback: Try with token if ticket_id fails
+            // Fallback: Try with token if ticket_id fails (legacy support)
             try {
-                qrDataUrl = await QRCode.toDataURL(participant.token, {
+                // Also append meal to token fallback
+                qrDataUrl = await QRCode.toDataURL(`${participant.token}|${meal.name.toLowerCase()}`, {
                     width: 400,
                     margin: 1,
                     errorCorrectionLevel: 'M'

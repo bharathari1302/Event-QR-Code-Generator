@@ -7,8 +7,8 @@ export async function POST(req: NextRequest) {
     console.log('[SYNC] Time:', new Date().toISOString());
 
     try {
-        const { sheetId, sheetName, eventId, eventName } = await req.json();
-        console.log('[SYNC] Request params:', { sheetId, sheetName, eventId, eventName });
+        const { sheetId, sheetName, eventId, eventName, syncSubType, syncMealName } = await req.json();
+        console.log('[SYNC] Request params:', { sheetId, sheetName, eventId, eventName, syncSubType, syncMealName });
         console.log('[SYNC] Environment check:', {
             FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL ? 'SET' : 'MISSING',
             FIREBASE_PRIVATE_KEY_LENGTH: process.env.FIREBASE_PRIVATE_KEY?.length || 0,
@@ -20,6 +20,18 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Sheet ID and Event ID are required' }, { status: 400 });
         }
 
+        // Determine Allowed Meals based on Sync Settings
+        let allowedMeals: string[] = [];
+        if (syncSubType === 'hostel_day') {
+            allowedMeals = ['breakfast', 'lunch', 'snacks', 'dinner', 'icecream'];
+        } else if (syncSubType === 'other' && syncMealName) {
+            allowedMeals = [syncMealName.toLowerCase()];
+        } else {
+            // Default fallback if nothing specified
+            allowedMeals = ['breakfast', 'lunch', 'snacks', 'dinner', 'icecream'];
+        }
+        console.log('[SYNC] Configured Allowed Meals:', allowedMeals);
+
         // Use Shared Library to fetch data
         console.log('[SYNC] Fetching sheet data...');
         const { headers, dataRows, targetSheetName } = await getSheetData(sheetId, sheetName);
@@ -28,7 +40,9 @@ export async function POST(req: NextRequest) {
         // Update Event with persistent link automatically on successful sync
         await adminDb.collection('events').doc(eventId).update({
             googleSheetId: sheetId,
-            googleSheetName: targetSheetName
+            googleSheetName: targetSheetName,
+            syncSubType: syncSubType || 'hostel_day',
+            syncMealName: syncMealName || ''
         });
 
         // Fetch existing participants to prevent duplicates
@@ -75,7 +89,7 @@ export async function POST(req: NextRequest) {
             const docRef = adminDb.collection('participants').doc();
 
             batch.set(docRef, {
-                document_id: docRef.id,
+                document_id: docRef.id, // Keep for legacy
                 name: name,
                 email: email,
                 college: college,
@@ -95,6 +109,9 @@ export async function POST(req: NextRequest) {
                 ticket_id: 'INV-' + Date.now().toString().slice(-6) + '-' + count,
                 created_at: new Date(),
                 check_in_time: null,
+
+                // MEAL CONFIGURATION
+                allowedMeals: allowedMeals,
                 tokenUsage: {
                     breakfast: false,
                     lunch: false,

@@ -22,9 +22,10 @@ export async function POST(req: NextRequest) {
         // Parse the payload - format can be "ticket_id|meal" or "token|meal"
         const parts = qrPayload.split('|');
         const identifier = parts[0];
-        mealType = parts[1] ? parts[1].toLowerCase() : 'breakfast';
+        // If meal is in QR, use it. Otherwise default to breakfast (or logic below)
+        let qrMealType = parts[1] ? parts[1].toLowerCase() : null;
 
-        console.log('[VerifyFood] Parsed - Identifier:', identifier, 'MealType:', mealType);
+        console.log('[VerifyFood] Parsed - Identifier:', identifier, 'QR MealType:', qrMealType);
 
         // Determine if identifier is a ticket_id (starts with INV-) or a token
         const participantsRef = adminDb.collection('participants');
@@ -54,7 +55,34 @@ export async function POST(req: NextRequest) {
         const data = participantDoc.data();
         const docRef = participantDoc.ref;
 
-        console.log('[VerifyFood] Found participant:', data.name, 'Meal:', mealType);
+        // Determine Final Meal Type
+        if (qrMealType) {
+            mealType = qrMealType;
+        } else {
+            // Fallback for old QR codes
+            // Check if allowedMeals exists and has only one entry (e.g. Dinner)
+            if (data.allowedMeals && data.allowedMeals.length === 1) {
+                mealType = data.allowedMeals[0].toLowerCase();
+            } else {
+                // Default to breakfast if ambiguous or not set
+                mealType = 'breakfast';
+            }
+        }
+
+        // Validate if this meal is allowed for this participant
+        if (data.allowedMeals && !data.allowedMeals.map((m: string) => m.toLowerCase()).includes(mealType)) {
+            return NextResponse.json({
+                valid: false,
+                status: 'invalid',
+                participant: {
+                    name: data.name,
+                    ticket_id: data.ticket_id,
+                },
+                message: `Not Valid for ${mealType.toUpperCase()}`
+            });
+        }
+
+        console.log('[VerifyFood] Found participant:', data.name, 'Final Meal:', mealType);
 
 
         // Fetch photo URL from Google Drive based on roll number
