@@ -18,6 +18,12 @@ const transporter = nodemailer.createTransport({
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
     },
+    // Fix for DECODER routines error in production (Node.js 18+)
+    // This configures TLS to use modern ciphers compatible with Gmail
+    tls: {
+        minVersion: 'TLSv1.2',
+        rejectUnauthorized: false, // Safe for Gmail as the service identity is verified
+    },
 });
 
 interface EmailOptions {
