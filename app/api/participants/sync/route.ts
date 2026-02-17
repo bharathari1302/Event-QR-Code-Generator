@@ -3,15 +3,27 @@ import { adminDb } from '@/lib/firebaseAdmin';
 import { getSheetData, parseParticipantRow } from '@/lib/googleSheets';
 
 export async function POST(req: NextRequest) {
+    console.log('[SYNC] ===== SYNC REQUEST STARTED =====');
+    console.log('[SYNC] Time:', new Date().toISOString());
+
     try {
         const { sheetId, sheetName, eventId, eventName } = await req.json();
+        console.log('[SYNC] Request params:', { sheetId, sheetName, eventId, eventName });
+        console.log('[SYNC] Environment check:', {
+            FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL ? 'SET' : 'MISSING',
+            FIREBASE_PRIVATE_KEY_LENGTH: process.env.FIREBASE_PRIVATE_KEY?.length || 0,
+            FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || 'MISSING'
+        });
 
         if (!sheetId || !eventId) {
+            console.error('[SYNC] Missing required fields');
             return NextResponse.json({ error: 'Sheet ID and Event ID are required' }, { status: 400 });
         }
 
         // Use Shared Library to fetch data
+        console.log('[SYNC] Fetching sheet data...');
         const { headers, dataRows, targetSheetName } = await getSheetData(sheetId, sheetName);
+        console.log('[SYNC] ✅ Sheet data fetched:', { rowCount: dataRows.length, headers });
 
         // Update Event with persistent link automatically on successful sync
         await adminDb.collection('events').doc(eventId).update({
@@ -117,9 +129,19 @@ export async function POST(req: NextRequest) {
         });
 
     } catch (error: any) {
-        console.error('Sheet Sync Error:', error);
+        console.error('[SYNC] ===== ERROR OCCURRED =====');
+        console.error('[SYNC] Error name:', error.name);
+        console.error('[SYNC] Error message:', error.message);
+        console.error('[SYNC] Error code:', error.code);
+        console.error('[SYNC] Error stack:', error.stack);
+        console.error('[SYNC] Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+
         return NextResponse.json({
-            error: error.message || 'Failed to sync with Google Sheets. Check permissions and ID.'
+            error: error.message || 'Failed to sync with Google Sheets. Check permissions and ID.',
+            errorType: error.name,
+            errorCode: error.code,
+            details: error.stack,
+            timestamp: new Date().toISOString()
         }, { status: 500 });
     }
 }
