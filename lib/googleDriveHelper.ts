@@ -27,7 +27,14 @@ interface DriveFile {
  * Uses the public folder sharing URL to access file list
  */
 async function fetchPhotoList(folderId: string): Promise<DriveFile[]> {
+    // Store original TLS setting to restore later
+    const originalRejectUnauthorized = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+
     try {
+        // Temporarily disable strict TLS validation for Google API calls
+        // This fixes DECODER routines error in Node.js 18+ production environments
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
         // Use Google Drive API v3 public endpoint to list files in folder
         const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
 
@@ -54,6 +61,13 @@ async function fetchPhotoList(folderId: string): Promise<DriveFile[]> {
     } catch (error) {
         console.error(`Error fetching photo list from Google Drive (Folder: ${folderId}):`, error);
         return [];
+    } finally {
+        // Restore original TLS setting
+        if (originalRejectUnauthorized !== undefined) {
+            process.env.NODE_TLS_REJECT_UNAUTHORIZED = originalRejectUnauthorized;
+        } else {
+            delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+        }
     }
 }
 
