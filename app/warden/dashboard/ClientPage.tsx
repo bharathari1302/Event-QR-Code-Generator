@@ -72,65 +72,74 @@ export default function WardenDashboard() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 p-6">
-            <div className="max-w-6xl mx-auto">
-                <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-800">Warden Dashboard</h1>
-                        <p className="text-gray-500 text-sm mt-1">
-                            Live Food Counter • Updated: {lastUpdated.toLocaleTimeString()}
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                        <select
-                            className="p-2 border rounded-lg bg-white shadow-sm"
-                            value={selectedEventId}
-                            onChange={(e) => setSelectedEventId(e.target.value)}
-                        >
-                            {events.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                        </select>
-                        <button
-                            onClick={() => window.location.reload()} // Simple refresh
-                            className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200"
-                        >
-                            <FaSync className={loading ? 'animate-spin' : ''} />
-                        </button>
-                    </div>
+        <div className="space-y-8">
+            {/* Header Section */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground">Food Stats Dashboard</h1>
+                    <p className="text-muted-foreground mt-2 flex items-center gap-2">
+                        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                        Live updates • Last refreshed: {lastUpdated.toLocaleTimeString()}
+                    </p>
                 </div>
 
-                {!selectedEventId && (
-                    <div className="text-center py-20 text-gray-500">No Events Found</div>
-                )}
+                <div className="flex items-center gap-3">
+                    <select
+                        className="px-4 py-2.5 border border-border rounded-lg bg-card shadow-sm font-medium text-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                        value={selectedEventId}
+                        onChange={(e) => setSelectedEventId(e.target.value)}
+                    >
+                        {events.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    </select>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="p-2.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-all"
+                        title="Refresh"
+                    >
+                        <FaSync className={loading ? 'animate-spin' : ''} />
+                    </button>
+                </div>
+            </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-12">
+            {!selectedEventId && (
+                <div className="text-center py-20 bg-card rounded-xl border border-border">
+                    <p className="text-muted-foreground">No Events Found</p>
+                </div>
+            )}
+
+            {/* Meal Stats Cards Grid */}
+            <div>
+                <h2 className="text-xl font-semibold mb-4 text-foreground">Meal Statistics</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
                     {meals.map(meal => (
-                        <div key={meal} className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden flex flex-col hover:shadow-xl transition-shadow">
+                        <div key={meal} className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all hover:shadow-md">
                             {/* Header */}
-                            <div className="bg-slate-800 text-white p-4 text-center">
-                                <h3 className="text-xl font-bold uppercase tracking-wider">{meal}</h3>
+                            <div className="bg-gradient-to-r from-primary to-primary/80 text-white p-4 text-center">
+                                <h3 className="text-lg font-bold uppercase tracking-wider">{meal}</h3>
                             </div>
 
                             {/* Body */}
-                            <div className="p-6 flex-1 flex flex-col justify-center">
+                            <div className="p-6">
                                 <div className="text-center mb-6">
-                                    <p className="text-gray-400 text-xs uppercase font-bold mb-1">Total Served</p>
-                                    <p className="text-5xl font-black text-slate-800">{getStat(meal, 'total')}</p>
+                                    <p className="text-muted-foreground text-xs uppercase font-semibold mb-2 tracking-wide">Total Served</p>
+                                    <p className="text-5xl font-black text-foreground">{getStat(meal, 'total')}</p>
                                 </div>
 
                                 {!['snacks', 'icecream'].includes(meal) && (
-                                    <div className="grid grid-cols-2 gap-4 border-t pt-4">
+                                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
                                         <div className="text-center">
-                                            <div className="flex items-center justify-center gap-1 text-green-600 mb-1">
-                                                <FaLeaf size={12} /> <span className="text-xs font-bold">VEG</span>
+                                            <div className="flex items-center justify-center gap-1.5 text-green-600 mb-2">
+                                                <FaLeaf size={14} />
+                                                <span className="text-xs font-bold uppercase tracking-wide">Veg</span>
                                             </div>
-                                            <p className="text-xl font-bold text-green-700">{getStat(meal, 'veg')}</p>
+                                            <p className="text-2xl font-bold text-green-600">{getStat(meal, 'veg')}</p>
                                         </div>
-                                        <div className="text-center border-l">
-                                            <div className="flex items-center justify-center gap-1 text-red-600 mb-1">
-                                                <FaDrumstickBite size={12} /> <span className="text-xs font-bold">NON-VEG</span>
+                                        <div className="text-center border-l border-border">
+                                            <div className="flex items-center justify-center gap-1.5 text-red-600 mb-2">
+                                                <FaDrumstickBite size={14} />
+                                                <span className="text-xs font-bold uppercase tracking-wide">Non-Veg</span>
                                             </div>
-                                            <p className="text-xl font-bold text-red-700">{getStat(meal, 'nonveg')}</p>
+                                            <p className="text-2xl font-bold text-red-600">{getStat(meal, 'nonveg')}</p>
                                         </div>
                                     </div>
                                 )}
@@ -138,9 +147,9 @@ export default function WardenDashboard() {
                         </div>
                     ))}
                 </div>
-
-                <DetailedView eventId={selectedEventId} eventName={events.find(e => e.id === selectedEventId)?.name || 'Event'} />
             </div>
+
+            <DetailedView eventId={selectedEventId} eventName={events.find(e => e.id === selectedEventId)?.name || 'Event'} />
         </div>
     );
 }
@@ -298,25 +307,27 @@ function DetailedView({ eventId, eventName }: { eventId: string, eventName: stri
     };
 
     return (
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden relative">
-            <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="bg-card rounded-xl border border-border overflow-hidden relative shadow-sm">
+            <div className="p-6 border-b border-border flex flex-col md:flex-row justify-between items-center gap-4">
                 <div className="flex items-center gap-4">
-                    <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                        <FaUsers className="text-blue-600" />
-                        Live Detailed Log
+                    <h2 className="text-2xl font-bold text-foreground flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                            <FaUsers className="text-primary" />
+                        </div>
+                        Student Details
                     </h2>
                     <button
                         onClick={() => setShowPdfModal(true)}
-                        className="bg-red-600 text-white px-3 py-1 rounded text-sm font-bold flex items-center gap-1 hover:bg-red-700 transition-colors shadow-sm"
+                        className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-red-700 transition-all shadow-sm"
                     >
-                        <FaFilePdf /> PDF
+                        <FaFilePdf /> Export PDF
                     </button>
                 </div>
 
-                <div className="flex flex-wrap md:flex-nowrap gap-4 items-center w-full md:w-auto">
+                <div className="flex flex-wrap md:flex-nowrap gap-3 items-center w-full md:w-auto">
                     {/* Filters */}
                     <select
-                        className="p-2 text-sm border rounded-lg bg-gray-50 font-medium text-gray-700"
+                        className="px-3 py-2 text-sm border border-border rounded-lg bg-card font-medium text-foreground shadow-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                         value={filterFood}
                         onChange={(e) => setFilterFood(e.target.value)}
                     >
@@ -326,7 +337,7 @@ function DetailedView({ eventId, eventName }: { eventId: string, eventName: stri
                     </select>
 
                     <select
-                        className="p-2 text-sm border rounded-lg bg-gray-50 font-medium text-gray-700"
+                        className="px-3 py-2 text-sm border border-border rounded-lg bg-card font-medium text-foreground shadow-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                         value={filterStatus}
                         onChange={(e) => setFilterStatus(e.target.value)}
                     >
@@ -335,17 +346,17 @@ function DetailedView({ eventId, eventName }: { eventId: string, eventName: stri
                         <option value="Pending">Not Served</option>
                     </select>
 
-                    <div className="h-6 w-px bg-gray-300 hidden md:block"></div>
+                    <div className="h-6 w-px bg-border hidden md:block"></div>
 
                     <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto">
                         {meals.map(meal => (
                             <button
                                 key={meal}
                                 onClick={() => setSelectedMeal(meal)}
-                                className={`px-4 py-2 rounded-lg text-sm font-bold uppercase transition-all whitespace-nowrap
+                                className={`px-4 py-2 rounded-lg text-sm font-semibold uppercase transition-all whitespace-nowrap
                                         ${selectedMeal === meal
-                                        ? 'bg-slate-800 text-white shadow-md'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}
+                                        ? 'bg-primary text-white shadow-sm'
+                                        : 'bg-muted text-muted-foreground hover:bg-muted/80'}
                                     `}
                             >
                                 {meal}
@@ -358,30 +369,30 @@ function DetailedView({ eventId, eventName }: { eventId: string, eventName: stri
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="bg-gray-50 text-gray-500 uppercase text-xs tracking-wider">
-                            <th className="p-4 font-bold border-b">S.No</th>
-                            <th className="p-4 font-bold border-b">Student Name</th>
-                            <th className="p-4 font-bold border-b">Roll No</th>
-                            <th className="p-4 font-bold border-b">Room No</th>
-                            <th className="p-4 font-bold border-b">Food Pref</th>
-                            <th className="p-4 font-bold border-b">Status</th>
-                            <th className="p-4 font-bold border-b">Check-in Time</th>
+                        <tr className="bg-muted/50 text-muted-foreground uppercase text-xs tracking-wider font-semibold">
+                            <th className="p-4 border-b border-border">S.No</th>
+                            <th className="p-4 border-b border-border">Student Name</th>
+                            <th className="p-4 border-b border-border">Roll No</th>
+                            <th className="p-4 border-b border-border">Room No</th>
+                            <th className="p-4 border-b border-border">Food Pref</th>
+                            <th className="p-4 border-b border-border">Status</th>
+                            <th className="p-4 border-b border-border">Check-in Time</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-border">
                         {filteredParticipants.length === 0 ? (
                             <tr>
-                                <td colSpan={7} className="p-8 text-center text-gray-400">
+                                <td colSpan={7} className="p-12 text-center text-muted-foreground">
                                     No records found for this filter.
                                 </td>
                             </tr>
                         ) : (
                             filteredParticipants.map((p, index) => (
-                                <tr key={p.id} className="hover:bg-blue-50 transition-colors">
-                                    <td className="p-4 text-gray-500 font-mono text-sm">{index + 1}</td>
-                                    <td className="p-4 font-bold text-gray-800">{p.name}</td>
-                                    <td className="p-4 text-gray-600 font-mono text-sm">{p.rollNo}</td>
-                                    <td className="p-4 text-gray-600">{p.roomNo}</td>
+                                <tr key={p.id} className="hover:bg-muted/30 transition-colors">
+                                    <td className="p-4 text-muted-foreground font-mono text-sm">{index + 1}</td>
+                                    <td className="p-4 font-semibold text-foreground">{p.name}</td>
+                                    <td className="p-4 text-muted-foreground font-mono text-sm">{p.rollNo}</td>
+                                    <td className="p-4 text-muted-foreground">{p.roomNo}</td>
                                     <td className="p-4">
                                         {['snacks', 'icecream'].includes(selectedMeal) ? (
                                             <span className="text-gray-400 text-sm">-</span>
@@ -414,40 +425,41 @@ function DetailedView({ eventId, eventName }: { eventId: string, eventName: stri
                 </table>
             </div>
 
-            <div className="p-4 bg-gray-50 border-t border-gray-100 text-right text-xs text-gray-400">
-                Displaying {filteredParticipants.length} records • Auto-refreshing
+            <div className="p-4 bg-muted/30 border-t border-border text-right text-xs text-muted-foreground">
             </div>
 
             {/* PDF Modal */}
             {showPdfModal && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                        <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-                            <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
-                                <FaFilePdf className="text-red-600" />
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-card rounded-xl w-full max-w-md shadow-2xl overflow-hidden border border-border">
+                        <div className="p-5 border-b border-border flex justify-between items-center bg-muted/30">
+                            <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
+                                <div className="p-1.5 bg-red-100 rounded">
+                                    <FaFilePdf className="text-red-600" />
+                                </div>
                                 Generate PDF Report
                             </h3>
-                            <button onClick={() => setShowPdfModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                                <FaTimes />
+                            <button onClick={() => setShowPdfModal(false)} className="text-muted-foreground hover:text-foreground transition-colors p-1">
+                                <FaTimes size={18} />
                             </button>
                         </div>
                         <div className="p-6 space-y-6">
 
                             {/* Status Selection */}
                             <div>
-                                <h4 className="text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Select Status</h4>
-                                <div className="flex gap-4">
+                                <h4 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wide">Select Status</h4>
+                                <div className="flex gap-3">
                                     {['Served', 'Pending'].map(status => (
-                                        <label key={status} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer border-gray-200 hover:bg-gray-50 bg-white transition-all
-                                            ${pdfFilterStatuses.includes(status) ? 'ring-2 ring-blue-500 border-transparent' : ''}
+                                        <label key={status} className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition-all flex-1
+                                            ${pdfFilterStatuses.includes(status) ? 'ring-2 ring-primary border-transparent bg-primary/5' : 'border-border hover:bg-muted/50 bg-card'}
                                         `}>
                                             <input
                                                 type="checkbox"
                                                 checked={pdfFilterStatuses.includes(status)}
                                                 onChange={() => togglePdfStatus(status)}
-                                                className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                                                className="rounded text-primary focus:ring-primary w-4 h-4"
                                             />
-                                            <span className="text-sm font-medium text-gray-700">{status === 'Pending' ? 'Not Served' : status}</span>
+                                            <span className="text-sm font-medium text-foreground">{status === 'Pending' ? 'Not Served' : status}</span>
                                         </label>
                                     ))}
                                 </div>
@@ -455,15 +467,15 @@ function DetailedView({ eventId, eventName }: { eventId: string, eventName: stri
 
                             {/* Column Selection */}
                             <div>
-                                <h4 className="text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Select Columns</h4>
-                                <div className="grid grid-cols-2 gap-3">
+                                <h4 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wide">Select Columns</h4>
+                                <div className="grid grid-cols-2 gap-2.5">
                                     {availableColumns.map(col => (
-                                        <label key={col} className={`flex items-center gap-3 text-sm p-3 rounded-lg cursor-pointer border transition-all ${selectedColumns.includes(col) ? 'bg-blue-50 border-blue-200 text-blue-700 font-medium' : 'hover:bg-gray-50 border-gray-100 text-gray-600'}`}>
+                                        <label key={col} className={`flex items-center gap-2.5 text-sm p-3 rounded-lg cursor-pointer border transition-all ${selectedColumns.includes(col) ? 'bg-primary/5 border-primary/30 text-primary font-medium' : 'hover:bg-muted/50 border-border text-foreground'}`}>
                                             <input
                                                 type="checkbox"
                                                 checked={selectedColumns.includes(col)}
                                                 onChange={() => toggleColumn(col)}
-                                                className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 border-gray-300"
+                                                className="rounded text-primary focus:ring-primary w-4 h-4"
                                             />
                                             {col}
                                         </label>
@@ -471,17 +483,17 @@ function DetailedView({ eventId, eventName }: { eventId: string, eventName: stri
                                 </div>
                             </div>
                         </div>
-                        <div className="p-4 bg-gray-50 flex justify-end gap-3 border-t">
+                        <div className="p-4 bg-muted/30 flex justify-end gap-3 border-t border-border">
                             <button
                                 onClick={() => setShowPdfModal(false)}
-                                className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition-colors"
+                                className="px-4 py-2 rounded-lg text-foreground hover:bg-muted font-medium transition-all"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={generatePdf}
                                 disabled={selectedColumns.length === 0 || pdfFilterStatuses.length === 0}
-                                className="px-5 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-all active:scale-95"
+                                className="px-5 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-all active:scale-95"
                             >
                                 <FaFilePdf /> Download Report
                             </button>

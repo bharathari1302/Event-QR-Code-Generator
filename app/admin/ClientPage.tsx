@@ -90,7 +90,7 @@ export default function AdminPage() {
             {/* Quick Actions / Modules */}
             <div>
                 <h2 className="text-xl font-semibold mb-4 text-foreground">Quick Actions</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
                     {/* Manage Events Card */}
                     <Link href="/admin/events" className="group relative overflow-hidden rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md hover:border-primary/20">
@@ -131,6 +131,27 @@ export default function AdminPage() {
                                 </div>
                             </div>
                             <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                    </Link>
+
+                    {/* Food Scanner Card */}
+                    <Link href="/food-scanner" className="group relative overflow-hidden rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md hover:border-orange-500/20">
+                        <div className="flex items-start justify-between">
+                            <div className="space-y-4">
+                                <div className="p-3 bg-orange-500/10 w-fit rounded-lg">
+                                    <Activity className="h-6 w-6 text-orange-500" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-lg text-card-foreground">Food Scanner</h3>
+                                    <p className="text-sm text-muted-foreground mt-1 max-w-xs">
+                                        Scan meal coupons and verify student food tokens.
+                                    </p>
+                                </div>
+                                <div className="text-orange-500 font-medium flex items-center group-hover:translate-x-1 transition-transform">
+                                    Open Scanner <ArrowRight className="ml-2 h-4 w-4" />
+                                </div>
+                            </div>
+                            <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
                     </Link>
 

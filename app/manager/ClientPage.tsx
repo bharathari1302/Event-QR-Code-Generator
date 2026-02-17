@@ -111,21 +111,6 @@ export default function ManagerDashboard() {
                         <h3 className="font-bold text-lg text-gray-800">Food Token Scanner</h3>
                         <p className="text-sm text-gray-500 mt-1">Scan meal coupons for participants</p>
                     </Link>
-
-                    {/* Coordinator scanner logic might act differently, but manager can surely use it? 
-                        User said "Manager... can Scan QR Code". 
-                        Usually "Scan QR Code" implies Verification (Entry) or Food.
-                        Entry is usually for Coordinator.
-                        But Manager has higher privilege. 
-                        I'll add link to generic Coordinator scanner too, just in case.
-                    */}
-                    <Link href="/coordinator" className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-purple-500 transition group flex flex-col items-center text-center">
-                        <div className="bg-purple-100 p-4 rounded-full text-purple-600 mb-4 group-hover:scale-110 transition-transform">
-                            <span className="text-2xl">📷</span>
-                        </div>
-                        <h3 className="font-bold text-lg text-gray-800">Entry Verification</h3>
-                        <p className="text-sm text-gray-500 mt-1">Scan entry passes (acts as Coordinator)</p>
-                    </Link>
                 </div>
 
             </div>

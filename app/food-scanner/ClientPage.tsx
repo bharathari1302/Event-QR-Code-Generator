@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
-import { FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaUtensils, FaLeaf, FaDrumstickBite } from 'react-icons/fa';
+import { FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaUtensils, FaLeaf, FaDrumstickBite, FaSignOutAlt } from 'react-icons/fa';
+import { useAuth } from '@/app/context/AuthContext';
 
 type FoodScanResult = {
     valid: boolean;
@@ -28,8 +29,8 @@ type MealType = 'breakfast' | 'lunch' | 'snacks' | 'dinner' | 'icecream';
 export default function FoodScannerPage() {
     const [scanResult, setScanResult] = useState<FoodScanResult | null>(null);
     const [scanning, setScanning] = useState(true);
-    const [selectedMeal, setSelectedMeal] = useState<MealType>('breakfast');
     const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+    const { logout } = useAuth();
 
     useEffect(() => {
         if (!scanResult && scanning) {
@@ -57,16 +58,11 @@ export default function FoodScannerPage() {
         }
         setScanning(false);
 
-        // Support both formats: "token" or "token|meal"
-        let qrPayload = decodedText;
-
-        // If QR code doesn't have meal type, append the selected meal
-        if (!decodedText.includes('|')) {
-            qrPayload = `${decodedText}|${selectedMeal}`;
-        }
+        // Use the QR code as-is since it already contains meal information
+        const qrPayload = decodedText;
 
         try {
-            // First pass: Dry run to check eligibility without marking as used
+            // Use dry run to verify and show photo/details before marking as used
             const response = await fetch('/api/verify-food', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -74,8 +70,11 @@ export default function FoodScannerPage() {
             });
             const data = await response.json();
 
-            // Store the payload for the second pass (Approve)
+            // Store the payload for the approve action
             if (data.status === 'eligible') {
+                // Change status to 'verified' to show the old design
+                data.status = 'verified';
+                data.message = 'Verified';
                 // Attach payload to data so we can use it in handleApprove
                 data.qrPayload = qrPayload;
             }
@@ -129,48 +128,21 @@ export default function FoodScannerPage() {
     return (
         <div className="min-h-screen bg-neutral-900 flex flex-col items-center justify-center p-4">
 
-            {!scanResult && (
-                <>
-                    <div className="text-white text-center mb-6">
-                        <h1 className="text-3xl font-bold flex items-center justify-center gap-2">
-                            <FaUtensils /> Food Token Scanner
-                        </h1>
-                        <p className="text-gray-400 text-sm">Scan any Meal Coupon or Token</p>
-                    </div>
+            {/* Logout Button - Fixed Position */}
+            <button
+                onClick={logout}
+                className="fixed top-4 right-4 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow-lg flex items-center gap-2 transition-all transform hover:scale-105 z-50"
+            >
+                <FaSignOutAlt /> Logout
+            </button>
 
-                    {/* Meal Type Selector */}
-                    <div className="w-full max-w-md mb-4">
-                        <label className="text-white text-sm font-medium mb-2 block">Select Meal Type:</label>
-                        <div className="grid grid-cols-3 gap-2">
-                            {(['breakfast', 'lunch', 'dinner'] as MealType[]).map((meal) => (
-                                <button
-                                    key={meal}
-                                    onClick={() => setSelectedMeal(meal)}
-                                    className={`px-4 py-2 rounded-lg font-medium transition-all ${selectedMeal === meal
-                                        ? 'bg-blue-600 text-white shadow-lg'
-                                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                        }`}
-                                >
-                                    {meal.charAt(0).toUpperCase() + meal.slice(1)}
-                                </button>
-                            ))}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 mt-2">
-                            {(['snacks', 'icecream'] as MealType[]).map((meal) => (
-                                <button
-                                    key={meal}
-                                    onClick={() => setSelectedMeal(meal)}
-                                    className={`px-4 py-2 rounded-lg font-medium transition-all ${selectedMeal === meal
-                                        ? 'bg-blue-600 text-white shadow-lg'
-                                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                        }`}
-                                >
-                                    {meal.charAt(0).toUpperCase() + meal.slice(1)}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </>
+            {!scanResult && (
+                <div className="text-white text-center mb-6">
+                    <h1 className="text-3xl font-bold flex items-center justify-center gap-2">
+                        <FaUtensils /> Food Token Scanner
+                    </h1>
+                    <p className="text-gray-400 text-sm">Scan any Meal Coupon or Token</p>
+                </div>
             )}
 
             {scanning && (
@@ -278,13 +250,13 @@ export default function FoodScannerPage() {
                         </div>
                     )}
 
-                    {scanResult.status === 'eligible' ? (
+                    {scanResult.status === 'verified' ? (
                         <div className="flex gap-4 mt-6">
                             <button
                                 onClick={handleReject}
                                 className="flex-1 py-4 rounded-xl bg-red-600 text-white font-bold text-lg hover:bg-red-700 transition-colors shadow-lg active:scale-95 flex items-center justify-center gap-2"
                             >
-                                <FaTimesCircle /> REJECT
+                                <FaTimesCircle /> DECLINE
                             </button>
                             <button
                                 onClick={handleApprove}

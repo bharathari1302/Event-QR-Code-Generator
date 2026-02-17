@@ -43,8 +43,10 @@ export function Sidebar() {
         links.push({ name: 'Dashboard', href: '/admin', icon: LayoutDashboard });
         links.push({ name: 'Users', href: '/admin/users', icon: Users });
         links.push({ name: 'Events', href: '/admin/events', icon: CalendarDays });
+        links.push({ name: 'Food Stats', href: '/warden/dashboard', icon: QrCode });
     } else if (role === 'manager') {
         links.push({ name: 'Dashboard', href: '/manager', icon: LayoutDashboard });
+        links.push({ name: 'Food Stats', href: '/warden/dashboard', icon: QrCode });
     } else if (role === 'coordinator') {
         links.push({ name: 'Scanner', href: '/coordinator', icon: QrCode });
     } else if (role === 'warden') {

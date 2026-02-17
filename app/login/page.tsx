@@ -20,7 +20,7 @@ export default function LoginPage() {
     if (user && role) {
         if (role === 'admin') router.push('/admin');
         else if (role === 'manager') router.push('/manager');
-        else if (role === 'coordinator') router.push('/coordinator');
+        else if (role === 'coordinator') router.push('/food-scanner');
     }
 
     const handleAdminLogin = async (e: React.FormEvent) => {

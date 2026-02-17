@@ -37,14 +37,19 @@ async function fetchPhotoList(folderId: string): Promise<DriveFile[]> {
         }
 
         const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${apiKey}&fields=files(id,name)`;
+        console.log(`[FetchPhotoList] Calling Google Drive API for folder: ${folderId}`);
 
         const response = await fetch(url);
+        console.log(`[FetchPhotoList] Response status: ${response.status} ${response.statusText}`);
 
         if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[FetchPhotoList] API Error: ${errorText}`);
             throw new Error(`Failed to fetch photo list: ${response.statusText}`);
         }
 
         const data = await response.json();
+        console.log(`[FetchPhotoList] Received ${data.files?.length || 0} files`);
         return data.files || [];
     } catch (error) {
         console.error(`Error fetching photo list from Google Drive (Folder: ${folderId}):`, error);
@@ -92,13 +97,23 @@ function extractRollNoFromFilename(filename: string): string | null {
  * Builds the cache of roll numbers to file IDs for a specific folder
  */
 async function buildPhotoCache(folderId: string): Promise<void> {
+    console.log(`[PhotoCache] Building cache for folder: ${folderId}`);
     const files = await fetchPhotoList(folderId);
+    console.log(`[PhotoCache] Fetched ${files.length} files from folder`);
+
     const newMap = new Map<string, string>();
 
-    files.forEach(file => {
+    files.forEach((file, index) => {
         const rollNo = extractRollNoFromFilename(file.name);
         if (rollNo) {
             newMap.set(rollNo, file.id);
+            if (index < 5) { // Log first 5 for debugging
+                console.log(`[PhotoCache] Mapped: "${file.name}" -> Roll No: "${rollNo}"`);
+            }
+        } else {
+            if (index < 5) { // Log first 5 failed extractions
+                console.log(`[PhotoCache] Could not extract roll no from: "${file.name}"`);
+            }
         }
     });
 

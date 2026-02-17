@@ -9,24 +9,53 @@ export async function POST(req: NextRequest) {
     try {
         const { qrPayload, dryRun } = await req.json();
 
-        if (!qrPayload || !qrPayload.includes('|')) {
+        if (!qrPayload) {
             return NextResponse.json({ valid: false, message: 'Invalid QR Format' }, { status: 400 });
         }
 
-        const [token, mealTypeRaw] = qrPayload.split('|');
-        const mealType = mealTypeRaw.toLowerCase();
+        console.log('[VerifyFood] Received QR Payload:', qrPayload);
 
-        // 1. Query Participant
+        let token: string;
+        let mealType: string;
+        let participantDoc: any = null;
+
+        // Parse the payload - format can be "ticket_id|meal" or "token|meal"
+        const parts = qrPayload.split('|');
+        const identifier = parts[0];
+        mealType = parts[1] ? parts[1].toLowerCase() : 'breakfast';
+
+        console.log('[VerifyFood] Parsed - Identifier:', identifier, 'MealType:', mealType);
+
+        // Determine if identifier is a ticket_id (starts with INV-) or a token
         const participantsRef = adminDb.collection('participants');
-        const snapshot = await participantsRef.where('token', '==', token).limit(1).get();
+        let snapshot;
 
-        if (snapshot.empty) {
-            return NextResponse.json({ valid: false, status: 'invalid', message: 'Invalid Token' });
+        if (identifier.startsWith('INV-')) {
+            // New format: ticket_id
+            console.log('[VerifyFood] Looking up by ticket_id:', identifier);
+            snapshot = await participantsRef.where('ticket_id', '==', identifier).limit(1).get();
+
+            if (snapshot.empty) {
+                console.log('[VerifyFood] No participant found with ticket_id:', identifier);
+                return NextResponse.json({ valid: false, status: 'invalid', message: 'Invalid Ticket ID' });
+            }
+        } else {
+            // Old format: token
+            console.log('[VerifyFood] Looking up by token:', identifier);
+            snapshot = await participantsRef.where('token', '==', identifier).limit(1).get();
+
+            if (snapshot.empty) {
+                console.log('[VerifyFood] No participant found with token:', identifier);
+                return NextResponse.json({ valid: false, status: 'invalid', message: 'Invalid Token' });
+            }
         }
 
-        const doc = snapshot.docs[0];
-        const data = doc.data();
-        const docRef = doc.ref;
+        participantDoc = snapshot.docs[0];
+        const data = participantDoc.data();
+        const docRef = participantDoc.ref;
+
+        console.log('[VerifyFood] Found participant:', data.name, 'Meal:', mealType);
+
 
         // Fetch photo URL from Google Drive based on roll number
         // Check for event-specific drive folder
@@ -38,14 +67,24 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        const driveUrl = await getPhotoUrlByRollNo(data.rollNo, driveFolderId);
-
+        // Fetch photo with timeout to avoid long delays
+        let driveUrl: string | null = null;
         try {
-            const logMsg = `[VerifyFood] ${new Date().toISOString()} - RollNo: ${data.rollNo}, EventID: ${data.event_id}, FolderID: ${driveFolderId}, DriveURL: ${driveUrl ? 'Found' : 'Not Found'}\n`;
-            fs.appendFileSync(path.join(process.cwd(), 'debug-photo.log'), logMsg);
-        } catch (e) { console.error('Log error', e); }
+            const photoFetchPromise = getPhotoUrlByRollNo(data.rollNo, driveFolderId);
+            const timeoutPromise = new Promise<null>((resolve) =>
+                setTimeout(() => resolve(null), 1500) // 1.5 second timeout
+            );
 
-        console.log(`[VerifyFood] RollNo: ${data.rollNo}, EventID: ${data.event_id}, FolderID: ${driveFolderId}, DriveURL: ${driveUrl ? 'Found' : 'Not Found'}`);
+            driveUrl = await Promise.race([photoFetchPromise, timeoutPromise]);
+
+            if (!driveUrl) {
+                console.log('[VerifyFood] Photo fetch timed out or not found');
+            }
+        } catch (error) {
+            console.error('[VerifyFood] Photo fetch error:', error);
+            driveUrl = null;
+        }
+
         const photoUrl = driveUrl ? `/api/photos/proxy?rollNo=${data.rollNo}&eventId=${data.event_id || ''}` : null;
 
         // 2. Check Usage
