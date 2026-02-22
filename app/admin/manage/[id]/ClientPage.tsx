@@ -148,10 +148,13 @@ export default function ManageEventPage() {
     const handleRefreshPhotos = async () => {
         setRefreshingPhotos(true);
         try {
-            const res = await fetch('/api/debug/photos?refresh=true');
+            const res = await fetch(`/api/debug/photos?refresh=true&eventId=${eventId}`);
             const data = await res.json();
             if (data.cacheStats) {
-                const count = data.cacheStats.folders?.[0]?.size || 0;
+                // Find stats for this specific event folder or default
+                const stats = data.cacheStats.folders?.find((f: any) => f.folderId === eventId)
+                    || data.cacheStats.folders?.[0];
+                const count = stats?.size || 0;
                 setStatus({ type: 'success', msg: `Photos Refreshed! Found ${count} photos in cache.` });
             } else {
                 setStatus({ type: 'success', msg: 'Photo cache refreshed successfully.' });

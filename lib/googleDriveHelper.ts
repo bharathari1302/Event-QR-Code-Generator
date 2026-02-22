@@ -148,7 +148,6 @@ async function buildPhotoCache(folderId: string): Promise<void> {
         // 2. Map by Full Name (no extension, normalized)
         const fullNormalized = normalizeName(cleanName);
         if (fullNormalized) {
-            // Only set if not already present or if we want to prioritize this file
             if (!nameMap.has(fullNormalized)) {
                 nameMap.set(fullNormalized, file.id);
             }
@@ -170,7 +169,7 @@ async function buildPhotoCache(folderId: string): Promise<void> {
         timestamp: Date.now()
     });
 
-    console.log(`Photo cache built for folder ${folderId} with ${rollMap.size} roll entries and ${nameMap.size} name entries`);
+    console.log(`[PhotoCache] Built for ${folderId}: ${rollMap.size} roll entries, ${nameMap.size} name entries`);
 }
 
 /**
@@ -182,11 +181,6 @@ export async function getParticipantPhotoUrl(
     name: string | null | undefined,
     eventFolderId?: string
 ): Promise<string | null> {
-    if (!rollNo && !name) {
-        return null;
-    }
-
-    // Determine which folder to use
     const folderId = eventFolderId || DEFAULT_DRIVE_FOLDER_ID;
 
     // Get cache entry for this folder
@@ -207,16 +201,22 @@ export async function getParticipantPhotoUrl(
         fileId = cache.rollMap.get(rollNo.toUpperCase());
     }
 
-    // 2. Seek by Name (fallback)
+    // 2. Seek by Exact Normalized Name (fallback)
     if (!fileId && name) {
-        fileId = cache.nameMap.get(normalizeName(name));
-    }
+        const normName = normalizeName(name);
+        fileId = cache.nameMap.get(normName);
 
-    // Log to file for debugging
-    try {
-        const logMsg = `[DriveHelper] ${new Date().toISOString()} - RollNo: ${rollNo}, Name: ${name}, Found: ${!!fileId}\n`;
-        fs.appendFileSync(path.join(process.cwd(), 'debug-photo.log'), logMsg);
-    } catch (e) { }
+        // 3. Fuzzy Match (if exact name fails)
+        if (!fileId && normName.length > 3) {
+            for (const [cachedName, id] of cache.nameMap.entries()) {
+                if (cachedName.includes(normName) || normName.includes(cachedName)) {
+                    fileId = id;
+                    console.log(`[DriveHelper] Fuzzy Match Found: Search [${normName}] Matched [${cachedName}]`);
+                    break;
+                }
+            }
+        }
+    }
 
     if (!fileId) {
         return null;
