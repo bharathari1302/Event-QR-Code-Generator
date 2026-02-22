@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { adminDb } from '@/lib/firebaseAdmin';
 import { getPhotoUrlByRollNo, refreshPhotoCache, getCacheStats, getSampleCacheKeys } from '@/lib/googleDriveHelper';
 
 export const dynamic = 'force-dynamic';
@@ -70,6 +71,30 @@ export async function GET(req: NextRequest) {
         // Get cache stats
         const cacheStats = getCacheStats();
 
+        const name = searchParams.get('name');
+        if (name) {
+            const participantsRef = adminDb.collection('participants');
+            const snapshot = await participantsRef.where('name', '>=', name).where('name', '<=', name + '\uf8ff').limit(10).get();
+            const participants = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+            const resultsWithName = await Promise.all(
+                participants.map(async (p: any) => ({
+                    name: p.name,
+                    rollNo: p.rollNo,
+                    photoUrl: await getPhotoUrlByRollNo(p.rollNo),
+                }))
+            );
+
+            return NextResponse.json({
+                searchName: name,
+                results: resultsWithName,
+                cacheStats: {
+                    ...cacheStats,
+                    sampleKeys: getSampleCacheKeys(100)
+                }
+            });
+        }
+
         // Test with specific roll number
         if (rollNo) {
             const photoUrl = await getPhotoUrlByRollNo(rollNo);
@@ -77,7 +102,10 @@ export async function GET(req: NextRequest) {
                 rollNo,
                 photoUrl,
                 found: !!photoUrl,
-                cacheStats
+                cacheStats: {
+                    ...cacheStats,
+                    sampleKeys: getSampleCacheKeys(100)
+                }
             });
         }
 
@@ -96,7 +124,7 @@ export async function GET(req: NextRequest) {
             testRollNoMatched: rollNo ? results.find(r => r.rollNo === rollNo) : null,
             cacheStats: {
                 ...cacheStats,
-                sampleKeys: getSampleCacheKeys(10)
+                sampleKeys: getSampleCacheKeys(100)
             },
             env: {
                 folderId: process.env.NEXT_PUBLIC_GOOGLE_DRIVE_FOLDER_ID ? 'Set' : 'Not Set',
