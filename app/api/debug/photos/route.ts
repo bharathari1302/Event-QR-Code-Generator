@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
                     });
                 }
 
-                const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${apiKey}&fields=files(id,name)`;
+                const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${apiKey}&fields=files(id,name,mimeType)`;
 
                 try {
                     const response = await fetch(url);
@@ -44,7 +44,8 @@ export async function GET(req: NextRequest) {
                         responseStatus: response.status,
                         responseOk: response.ok,
                         data: data,
-                        fileCount: data.files ? data.files.length : 0
+                        fileCount: data.files ? data.files.length : 0,
+                        debugFiles: data.files ? data.files.slice(0, 20).map((f: any) => ({ name: f.name, mimeType: f.mimeType })) : []
                     });
                 } catch (apiError: any) {
                     return NextResponse.json({
