@@ -81,27 +81,30 @@ async function fetchPhotoList(folderId: string): Promise<DriveFile[]> {
  */
 function extractRollNoFromFilename(filename: string): string | null {
     // Remove file extension
-    const nameWithoutExt = filename.replace(/\.(jpg|jpeg|png|webp)$/i, '');
+    const nameWithoutExt = filename.replace(/\.(jpg|jpeg|png|webp|pdf)$/i, '');
 
-    // 1. Try to extract roll number at the start
-    // Supports formats like: "24ALR004", "12345", "ALR004", etc.
-    const startMatch = nameWithoutExt.match(/^([A-Z0-9]{5,})/i);
-    if (startMatch) {
-        return startMatch[1].toUpperCase();
+    // 1. Try to find a specific Roll Number pattern anywhere in the string
+    // Pattern: 24 (year) + 2 or 3 letters (Dept) + 3 numbers (No)
+    // Examples: 24ALR004, 23CSD012, 22ME001
+    const rollPattern = /([0-9]{2}[A-Z]{2,3}[0-9]{3})/i;
+    const match = nameWithoutExt.match(rollPattern);
+    if (match) {
+        return match[1].toUpperCase();
     }
 
-    // 2. If not found at start, try to extract from the END
-    // Supports formats like: "IMG-20250318-WA0054 - ADITHYA T 24CDR007"
-    // Look for alphanumeric code at the end, possibly preceded by spaces or dashes
+    // 2. Fallback: Try alphanumeric code at the end (usual for student renamed files)
     const endMatch = nameWithoutExt.match(/[\s-_]([A-Z0-9]{5,})$/i);
     if (endMatch) {
         return endMatch[1].toUpperCase();
     }
 
-    // 3. Fallback: Try looser match at start if specific length check failed
-    const looseStartMatch = nameWithoutExt.match(/^([A-Z0-9]+)/i);
-    if (looseStartMatch) {
-        return looseStartMatch[1].toUpperCase();
+    // 3. Last Fallback: Try anything at the start that's not just numbers (avoid dates)
+    const startMatch = nameWithoutExt.match(/^([A-Z]+[0-9]+|[0-9]+[A-Z]+[A-Z0-9]*)/i);
+    if (startMatch) {
+        // Only return if it's not a long date-like number (e.g. 20250515)
+        if (!/^[0-9]{8}$/.test(startMatch[1])) {
+            return startMatch[1].toUpperCase();
+        }
     }
 
     return null;
