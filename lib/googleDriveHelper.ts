@@ -10,7 +10,8 @@ const DEFAULT_DRIVE_FOLDER_ID = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_FOLDER_ID |
 
 // Multi-folder cache: Map<FolderID, CacheEntry>
 interface CacheEntry {
-    map: Map<string, string>;
+    rollMap: Map<string, string>;
+    nameMap: Map<string, string>;
     timestamp: number;
 }
 
@@ -118,6 +119,13 @@ function extractRollNoFromFilename(filename: string): string | null {
 }
 
 /**
+ * Normalizes a name for matching (lowercase, alphanumeric only)
+ */
+function normalizeName(name: string): string {
+    return name.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+}
+
+/**
  * Builds the cache of roll numbers to file IDs for a specific folder
  */
 async function buildPhotoCache(folderId: string): Promise<void> {
@@ -125,38 +133,50 @@ async function buildPhotoCache(folderId: string): Promise<void> {
     const files = await fetchPhotoList(folderId);
     console.log(`[PhotoCache] Fetched ${files.length} files from folder`);
 
-    const newMap = new Map<string, string>();
+    const rollMap = new Map<string, string>();
+    const nameMap = new Map<string, string>();
 
     files.forEach((file, index) => {
+        // 1. Try Roll Number
         const rollNo = extractRollNoFromFilename(file.name);
         if (rollNo) {
-            newMap.set(rollNo, file.id);
-            if (index < 5) { // Log first 5 for debugging
-                console.log(`[PhotoCache] Mapped: "${file.name}" -> Roll No: "${rollNo}"`);
+            rollMap.set(rollNo, file.id);
+        }
+
+        // 2. Also map by Name (fallback)
+        // Remove extension and normalize
+        const namePart = file.name.replace(/\.(jpg|jpeg|png|webp|pdf)$/i, '').replace(/^[0-9A-Z]{5,}[\s-_]+/, '').trim();
+        if (namePart) {
+            const normalized = normalizeName(namePart);
+            if (normalized) {
+                nameMap.set(normalized, file.id);
             }
-        } else {
-            if (index < 5) { // Log first 5 failed extractions
-                console.log(`[PhotoCache] Could not extract roll no from: "${file.name}"`);
-            }
+        }
+
+        if (index < 5) {
+            console.log(`[PhotoCache] Sample Mapped: "${file.name}" -> Roll: "${rollNo || 'N/A'}", NameKey: "${normalizeName(file.name.replace(/\..*$/, ''))}"`);
         }
     });
 
     driveCaches.set(folderId, {
-        map: newMap,
+        rollMap,
+        nameMap,
         timestamp: Date.now()
     });
 
-    console.log(`Photo cache built for folder ${folderId} with ${newMap.size} entries`);
+    console.log(`Photo cache built for folder ${folderId} with ${rollMap.size} roll entries and ${nameMap.size} name entries`);
 }
 
 /**
- * Gets the photo URL for a given roll number
+ * Gets the photo URL for a given roll number or name
  * Returns null if photo not found
- * @param rollNo The participant's roll number
- * @param eventFolderId Optional specific folder ID for this event. detailed default env var used if not provided.
  */
-export async function getPhotoUrlByRollNo(rollNo: string | null | undefined, eventFolderId?: string): Promise<string | null> {
-    if (!rollNo) {
+export async function getParticipantPhotoUrl(
+    rollNo: string | null | undefined,
+    name: string | null | undefined,
+    eventFolderId?: string
+): Promise<string | null> {
+    if (!rollNo && !name) {
         return null;
     }
 
@@ -172,18 +192,27 @@ export async function getPhotoUrlByRollNo(rollNo: string | null | undefined, eve
         cache = driveCaches.get(folderId);
     }
 
-    const fileId = cache?.map.get(rollNo);
+    if (!cache) return null;
+
+    let fileId: string | undefined = undefined;
+
+    // 1. Seek by Roll Number (highest confidence)
+    if (rollNo) {
+        fileId = cache.rollMap.get(rollNo.toUpperCase());
+    }
+
+    // 2. Seek by Name (fallback)
+    if (!fileId && name) {
+        fileId = cache.nameMap.get(normalizeName(name));
+    }
 
     // Log to file for debugging
     try {
-        const logMsg = `[DriveHelper] ${new Date().toISOString()} - RollNo: ${rollNo}, Folder: ${folderId}, CacheSize: ${cache?.map.size}, Found: ${!!fileId}\n`;
+        const logMsg = `[DriveHelper] ${new Date().toISOString()} - RollNo: ${rollNo}, Name: ${name}, Found: ${!!fileId}\n`;
         fs.appendFileSync(path.join(process.cwd(), 'debug-photo.log'), logMsg);
-    } catch (e) { console.error('Log error', e); }
-
-    console.log(`[DriveHelper] distinct lookup for ${rollNo} in ${folderId}. Cache size: ${cache?.map.size}. Found: ${!!fileId}`);
+    } catch (e) { }
 
     if (!fileId) {
-        // console.log(`No photo found for roll number: ${rollNo} in folder ${folderId}`);
         return null;
     }
 
@@ -217,7 +246,7 @@ export async function refreshPhotoCache(eventFolderId?: string): Promise<void> {
 export function getCacheStats() {
     const folders = Array.from(driveCaches.keys()).map(k => ({
         folderId: k,
-        size: driveCaches.get(k)?.map.size || 0,
+        size: driveCaches.get(k)?.rollMap.size || 0,
         age: Date.now() - (driveCaches.get(k)?.timestamp || 0)
     }));
 
@@ -232,9 +261,9 @@ export function getCacheStats() {
  */
 export function getSampleCacheKeys(limit: number = 10): string[] {
     if (driveCaches.size === 0) return [];
-    const firstFolderId = driveCaches.keys().next().value;
+    const firstFolderId = Array.from(driveCaches.keys())[0];
     if (!firstFolderId) return [];
-    const map = driveCaches.get(firstFolderId)?.map;
+    const map = driveCaches.get(firstFolderId)?.rollMap;
     if (!map) return [];
     return Array.from(map.keys()).slice(0, limit);
 }

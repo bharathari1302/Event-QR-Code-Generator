@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
-import { getPhotoUrlByRollNo } from '@/lib/googleDriveHelper';
+import { getParticipantPhotoUrl } from '@/lib/googleDriveHelper';
 import fs from 'fs';
 import path from 'path';
 
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
         // Fetch photo with timeout to avoid long delays
         let driveUrl: string | null = null;
         try {
-            const photoFetchPromise = getPhotoUrlByRollNo(data.rollNo, driveFolderId);
+            const photoFetchPromise = getParticipantPhotoUrl(data.rollNo, data.name, driveFolderId);
             const timeoutPromise = new Promise<null>((resolve) =>
                 setTimeout(() => resolve(null), 1500) // 1.5 second timeout
             );
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
             driveUrl = null;
         }
 
-        const photoUrl = driveUrl ? `/api/photos/proxy?rollNo=${data.rollNo}&eventId=${data.event_id || ''}` : null;
+        const photoUrl = driveUrl ? `/api/photos/proxy?rollNo=${encodeURIComponent(data.rollNo || '')}&name=${encodeURIComponent(data.name || '')}&eventId=${data.event_id || ''}` : null;
 
         // 2. Check Usage
         // Ensure tokenUsage object exists

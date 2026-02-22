@@ -19,7 +19,8 @@ import {
     Trash2,
     Search,
     Code,
-    Copy
+    Copy,
+    RefreshCw
 } from 'lucide-react';
 import { Button } from '@/app/components/ui/Button';
 
@@ -54,6 +55,7 @@ export default function ManageEventPage() {
     const [sheetName, setSheetName] = useState('');
     const [syncingSheet, setSyncingSheet] = useState(false);
     const [autoSendEmails, setAutoSendEmails] = useState(true);
+    const [refreshingPhotos, setRefreshingPhotos] = useState(false);
 
     // Progress State
     interface ProgressState { current: number; total: number; success: number; failed: number; }
@@ -140,6 +142,25 @@ export default function ManageEventPage() {
             console.error(e);
         } finally {
             setFetchingCoordinators(false);
+        }
+    };
+
+    const handleRefreshPhotos = async () => {
+        setRefreshingPhotos(true);
+        try {
+            const res = await fetch('/api/debug/photos?refresh=true');
+            const data = await res.json();
+            if (data.cacheStats) {
+                const count = data.cacheStats.folders?.[0]?.size || 0;
+                setStatus({ type: 'success', msg: `Photos Refreshed! Found ${count} photos in cache.` });
+            } else {
+                setStatus({ type: 'success', msg: 'Photo cache refreshed successfully.' });
+            }
+        } catch (error) {
+            console.error('Refresh photos failed:', error);
+            setStatus({ type: 'error', msg: 'Failed to refresh photos.' });
+        } finally {
+            setRefreshingPhotos(false);
         }
     };
 
@@ -588,9 +609,20 @@ export default function ManageEventPage() {
                                 </div>
                             </div>
 
-                            <Button onClick={saveSettings} disabled={savingLink} isLoading={savingLink} className="w-full">
-                                Save All Settings
-                            </Button>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <Button onClick={saveSettings} disabled={savingLink} isLoading={savingLink} className="flex-1">
+                                    Save All Settings
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    onClick={handleRefreshPhotos}
+                                    disabled={refreshingPhotos}
+                                    isLoading={refreshingPhotos}
+                                    className="flex-1"
+                                >
+                                    <RefreshCw className="w-4 h-4 mr-2" /> Refresh Photos
+                                </Button>
+                            </div>
                         </div>
                     </div>
 
