@@ -46,16 +46,16 @@ async function fetchPhotoList(folderId: string): Promise<DriveFile[]> {
         console.log(`[FetchPhotoList] Starting fetch for folder: ${folderId}`);
 
         do {
-            const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${apiKey}&fields=nextPageToken,files(id,name)${nextPageToken ? `&pageToken=${nextPageToken}` : ''}&pageSize=1000`;
+            const fetchUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${apiKey}&fields=nextPageToken,files(id,name)${nextPageToken ? `&pageToken=${nextPageToken}` : ''}&pageSize=1000`;
 
-            const response = await fetch(url);
-            if (!response.ok) {
-                const errorText = await response.text();
+            const apiResponse: Response = await fetch(fetchUrl);
+            if (!apiResponse.ok) {
+                const errorText = await apiResponse.text();
                 console.error(`[FetchPhotoList] API Error: ${errorText}`);
                 break;
             }
 
-            const data = await response.json();
+            const data: { files?: DriveFile[], nextPageToken?: string } = await apiResponse.json();
             if (data.files) {
                 allFiles = allFiles.concat(data.files);
             }

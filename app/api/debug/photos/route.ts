@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
         if (name) {
             const participantsRef = adminDb.collection('participants');
             const snapshot = await participantsRef.where('name', '>=', name).where('name', '<=', name + '\uf8ff').limit(10).get();
-            const participants = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            const participants = snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() }));
 
             const resultsWithName = await Promise.all(
                 participants.map(async (p: any) => ({
