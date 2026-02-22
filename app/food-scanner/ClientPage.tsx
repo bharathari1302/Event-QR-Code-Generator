@@ -152,7 +152,7 @@ export default function FoodScannerPage() {
             )}
 
             {scanResult && (
-                <div className={`w-full max-w-md p-8 rounded-2xl shadow-2xl text-center animate-fade-in
+                <div className={`w-full max-w-md p-6 sm:p-8 rounded-2xl shadow-2xl text-center animate-fade-in
                     ${scanResult.status === 'verified' ? 'bg-green-50' :
                         scanResult.status === 'used' ? 'bg-red-50' :
                             scanResult.status === 'eligible' ? 'bg-yellow-50' : 'bg-gray-800'}
@@ -160,7 +160,7 @@ export default function FoodScannerPage() {
 
                     {/* Meal Type Header */}
                     {scanResult.scanDetails && (
-                        <div className="mb-4 inline-block px-4 py-1 rounded-full bg-black/10 text-black font-bold uppercase tracking-wide">
+                        <div className="mb-4 inline-block px-4 py-1 rounded-full bg-black/10 text-black font-bold uppercase tracking-tight text-xs sm:text-sm">
                             {scanResult.scanDetails.mealType}
                         </div>
                     )}
@@ -174,7 +174,7 @@ export default function FoodScannerPage() {
                     </div>
 
                     {/* Status Text */}
-                    <h2 className={`text-3xl font-black uppercase mb-2 ${scanResult.status === 'verified' ? 'text-green-600' :
+                    <h2 className={`text-2xl sm:text-3xl font-black uppercase mb-2 ${scanResult.status === 'verified' ? 'text-green-600' :
                         scanResult.status === 'used' ? 'text-red-600' :
                             scanResult.status === 'eligible' ? 'text-yellow-700' : 'text-gray-300'
                         }`}>
@@ -198,15 +198,15 @@ export default function FoodScannerPage() {
                             </div>
 
                             {/* Photo and Details Layout */}
-                            <div className="flex gap-4">
+                            <div className="flex flex-col sm:flex-row gap-4">
                                 {/* Photo Section */}
-                                <div className="flex-shrink-0">
+                                <div className="flex-shrink-0 flex justify-center sm:block">
                                     {scanResult.participant.photoUrl ? (
                                         <div className="relative">
                                             <img
                                                 src={scanResult.participant.photoUrl}
                                                 alt={scanResult.participant.name}
-                                                className="w-24 h-24 rounded-lg object-cover border-2 border-gray-300 shadow-md"
+                                                className="w-28 h-28 sm:w-24 sm:h-24 rounded-lg object-cover border-2 border-gray-300 shadow-md"
                                                 referrerPolicy="no-referrer"
                                                 onError={(e) => {
                                                     // Fallback to placeholder if image fails to load
@@ -214,13 +214,13 @@ export default function FoodScannerPage() {
                                                 }}
                                             />
                                             {scanResult.participant.rollNo && (
-                                                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full font-mono">
+                                                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-mono whitespace-nowrap">
                                                     {scanResult.participant.rollNo}
                                                 </div>
                                             )}
                                         </div>
                                     ) : (
-                                        <div className="w-24 h-24 rounded-lg bg-gray-200 flex items-center justify-center border-2 border-gray-300">
+                                        <div className="w-28 h-28 sm:w-24 sm:h-24 rounded-lg bg-gray-200 flex items-center justify-center border-2 border-gray-300">
                                             <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                             </svg>
@@ -229,20 +229,20 @@ export default function FoodScannerPage() {
                                 </div>
 
                                 {/* Details Section */}
-                                <div className="flex-grow">
-                                    <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Student</p>
-                                    <p className="text-xl font-bold text-gray-800 leading-tight mb-3">{scanResult.participant.name}</p>
+                                <div className="flex-grow text-center sm:text-left">
+                                    <p className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mb-0.5">Student</p>
+                                    <p className="text-lg sm:text-xl font-bold text-gray-800 leading-tight mb-2 sm:mb-3">{scanResult.participant.name}</p>
 
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
                                         <div>
-                                            <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Room No</p>
-                                            <p className="text-base font-mono font-bold text-gray-700">
+                                            <p className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mb-0.5">Room No</p>
+                                            <p className="text-sm sm:text-base font-mono font-bold text-gray-700">
                                                 {scanResult.participant.roomNo || 'N/A'}
                                             </p>
                                         </div>
                                         <div>
-                                            <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-1">Ticket ID</p>
-                                            <p className="text-xs font-mono text-gray-600">{scanResult.participant.ticket_id}</p>
+                                            <p className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mb-0.5">Ticket ID</p>
+                                            <p className="text-[10px] font-mono text-gray-600 truncate">{scanResult.participant.ticket_id}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -251,16 +251,16 @@ export default function FoodScannerPage() {
                     )}
 
                     {scanResult.status === 'verified' ? (
-                        <div className="flex gap-4 mt-6">
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-6">
                             <button
                                 onClick={handleReject}
-                                className="flex-1 py-4 rounded-xl bg-red-600 text-white font-bold text-lg hover:bg-red-700 transition-colors shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                                className="flex-1 py-3 sm:py-4 rounded-xl bg-red-600 text-white font-bold text-base sm:text-lg hover:bg-red-700 transition-colors shadow-lg active:scale-95 flex items-center justify-center gap-2"
                             >
                                 <FaTimesCircle /> DECLINE
                             </button>
                             <button
                                 onClick={handleApprove}
-                                className="flex-1 py-4 rounded-xl bg-green-600 text-white font-bold text-lg hover:bg-green-700 transition-colors shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                                className="flex-1 py-3 sm:py-4 rounded-xl bg-green-600 text-white font-bold text-base sm:text-lg hover:bg-green-700 transition-colors shadow-lg active:scale-95 flex items-center justify-center gap-2"
                             >
                                 <FaCheckCircle /> APPROVE
                             </button>

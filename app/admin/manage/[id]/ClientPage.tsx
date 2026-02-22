@@ -486,7 +486,7 @@ export default function ManageEventPage() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-1 sm:px-0">
             {/* Header */}
             <div className="flex items-center gap-4">
                 <Link href="/admin/events">
@@ -502,11 +502,11 @@ export default function ManageEventPage() {
 
             {/* Status Message */}
             {status.msg && (
-                <div className={`p-4 rounded-lg flex items-center gap-3 justify-between ${status.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+                <div className={`p-3 sm:p-4 rounded-lg flex items-start sm:items-center gap-3 justify-between ${status.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
                     }`}>
-                    <div className="flex items-center gap-3">
-                        {status.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-                        <span className="font-medium">{status.msg}</span>
+                    <div className="flex items-start sm:items-center gap-3">
+                        {status.type === 'success' ? <CheckCircle2 className="w-5 h-5 mt-0.5 sm:mt-0 flex-shrink-0" /> : <AlertCircle className="w-5 h-5 mt-0.5 sm:mt-0 flex-shrink-0" />}
+                        <span className="font-medium text-sm sm:text-base leading-tight">{status.msg}</span>
                     </div>
                     <button
                         onClick={() => setStatus({ type: '', msg: '' })}
@@ -520,13 +520,13 @@ export default function ManageEventPage() {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
                 {/* Left Column: Settings */}
-                <div className="space-y-6 lg:col-span-2">
+                <div className="space-y-4 sm:space-y-6 xl:col-span-2">
 
                     {/* Event Configuration */}
-                    <div className="bg-card border border-border rounded-xl shadow-sm p-6">
-                        <h2 className="text-lg font-semibold mb-6 flex items-center gap-2 text-card-foreground">
+                    <div className="bg-card border border-border rounded-xl shadow-sm p-4 sm:p-6">
+                        <h2 className="text-base sm:text-lg font-semibold mb-4 sm:mb-6 flex items-center gap-2 text-card-foreground">
                             <Save className="w-5 h-5 text-primary" /> Event Configuration
                         </h2>
 
@@ -595,8 +595,8 @@ export default function ManageEventPage() {
                     </div>
 
                     {/* Import Participants */}
-                    <div className="bg-card border border-border rounded-xl shadow-sm p-6">
-                        <h2 className="text-lg font-semibold mb-6 flex items-center gap-2 text-card-foreground">
+                    <div className="bg-card border border-border rounded-xl shadow-sm p-4 sm:p-6">
+                        <h2 className="text-base sm:text-lg font-semibold mb-6 flex items-center gap-2 text-card-foreground">
                             <FileSpreadsheet className="w-5 h-5 text-green-600" /> Import Participants
                         </h2>
 
@@ -734,11 +734,11 @@ export default function ManageEventPage() {
                     </div>
 
                     {/* Real-Time Sync (Apps Script) */}
-                    <div className="bg-card border border-border rounded-xl shadow-sm p-6">
-                        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-card-foreground">
+                    <div className="bg-card border border-border rounded-xl shadow-sm p-4 sm:p-6">
+                        <h2 className="text-base sm:text-lg font-semibold mb-4 flex items-center gap-2 text-card-foreground">
                             <Code className="w-5 h-5 text-amber-600" /> Real-Time Sync (Google Apps Script)
                         </h2>
-                        <div className="bg-amber-50/50 border border-amber-100 rounded-lg p-5">
+                        <div className="bg-amber-50/50 border border-amber-100 rounded-lg p-3 sm:p-5">
                             <p className="text-sm text-amber-800 mb-4">
                                 To get real-time updates from your restricted Google Sheet, add the provided script to your sheet and configure these values:
                             </p>

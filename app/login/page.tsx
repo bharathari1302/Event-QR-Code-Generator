@@ -56,16 +56,16 @@ export default function LoginPage() {
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
 
                 {/* Header Section */}
-                <div className="bg-slate-100 p-8 text-center border-b border-gray-200">
-                    <h1 className="text-3xl font-extrabold text-slate-800 mb-2 tracking-tight">Welcome Back</h1>
-                    <p className="text-slate-500 text-sm">Sign in to manage or verifying attendees</p>
+                <div className="bg-slate-100 p-6 sm:p-8 text-center border-b border-gray-200">
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 mb-2 tracking-tight">Welcome Back</h1>
+                    <p className="text-slate-500 text-xs sm:text-sm">Sign in to manage or verify attendees</p>
                 </div>
 
                 {/* Tab Switcher */}
                 <div className="flex border-b border-gray-200">
                     <button
                         onClick={() => { setActiveTab('admin'); setError(''); }}
-                        className={`flex-1 py-4 text-sm font-semibold flex items-center justify-center gap-2 transition-all
+                        className={`flex-1 py-4.5 sm:py-4 text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all
               ${activeTab === 'admin'
                                 ? 'text-blue-600 bg-white border-b-2 border-blue-600'
                                 : 'text-gray-500 bg-gray-50 hover:bg-gray-100 hover:text-gray-700'}
@@ -76,7 +76,7 @@ export default function LoginPage() {
                     </button>
                     <button
                         onClick={() => { setActiveTab('coordinator'); setError(''); }}
-                        className={`flex-1 py-4 text-sm font-semibold flex items-center justify-center gap-2 transition-all
+                        className={`flex-1 py-4.5 sm:py-4 text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all
               ${activeTab === 'coordinator'
                                 ? 'text-purple-600 bg-white border-b-2 border-purple-600'
                                 : 'text-gray-500 bg-gray-50 hover:bg-gray-100 hover:text-gray-700'}
@@ -88,9 +88,9 @@ export default function LoginPage() {
                 </div>
 
                 {/* Form Container */}
-                <div className="p-8">
+                <div className="p-6 sm:p-8">
                     {error && (
-                        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded mb-6 text-sm">
+                        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded mb-6 text-xs sm:text-sm">
                             {error}
                         </div>
                     )}
