@@ -32,32 +32,39 @@ async function fetchPhotoList(folderId: string): Promise<DriveFile[]> {
 
     try {
         // Temporarily disable strict TLS validation for Google API calls
-        // This fixes DECODER routines error in Node.js 18+ production environments
         process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-        // Use Google Drive API v3 public endpoint to list files in folder
         const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
-
         if (!apiKey) {
             console.warn('Google API Key not configured. Photo fetching will be limited.');
             return [];
         }
 
-        const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${apiKey}&fields=files(id,name)`;
-        console.log(`[FetchPhotoList] Calling Google Drive API for folder: ${folderId}`);
+        let allFiles: DriveFile[] = [];
+        let nextPageToken: string | undefined = undefined;
 
-        const response = await fetch(url);
-        console.log(`[FetchPhotoList] Response status: ${response.status} ${response.statusText}`);
+        console.log(`[FetchPhotoList] Starting fetch for folder: ${folderId}`);
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`[FetchPhotoList] API Error: ${errorText}`);
-            throw new Error(`Failed to fetch photo list: ${response.statusText}`);
-        }
+        do {
+            const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${apiKey}&fields=nextPageToken,files(id,name)${nextPageToken ? `&pageToken=${nextPageToken}` : ''}&pageSize=1000`;
 
-        const data = await response.json();
-        console.log(`[FetchPhotoList] Received ${data.files?.length || 0} files`);
-        return data.files || [];
+            const response = await fetch(url);
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`[FetchPhotoList] API Error: ${errorText}`);
+                break;
+            }
+
+            const data = await response.json();
+            if (data.files) {
+                allFiles = allFiles.concat(data.files);
+            }
+            nextPageToken = data.nextPageToken;
+            console.log(`[FetchPhotoList] Fetched batch. Total so far: ${allFiles.length}`);
+        } while (nextPageToken);
+
+        console.log(`[FetchPhotoList] Total files fetched: ${allFiles.length}`);
+        return allFiles;
     } catch (error) {
         console.error(`Error fetching photo list from Google Drive (Folder: ${folderId}):`, error);
         return [];
