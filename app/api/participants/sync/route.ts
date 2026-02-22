@@ -45,40 +45,40 @@ export async function POST(req: NextRequest) {
             syncMealName: syncMealName || ''
         });
 
-        // Fetch existing participants to prevent duplicates
+        // Fetch existing participants to prevent duplicates (by rollNo only)
         const existingSnapshot = await adminDb.collection('participants')
             .where('event_id', '==', eventId)
             .get();
 
-        const existingEmails = new Set<string>();
         const existingRollNos = new Set<string>();
 
         existingSnapshot.forEach(doc => {
             const data = doc.data();
-            if (data.email) existingEmails.add(data.email.toLowerCase());
             if (data.rollNo) existingRollNos.add(data.rollNo.toUpperCase());
         });
 
         let count = 0;
+        let skippedNoName = 0;
+        let skippedDuplicate = 0;
+        const totalRows = dataRows.length;
         const batchSize = 450;
         let batch = adminDb.batch();
         let batchCount = 0;
 
         for (const row of dataRows) {
             const data = parseParticipantRow(row, headers);
-            if (!data) continue;
+            if (!data) {
+                skippedNoName++;
+                continue;
+            }
 
             const { name, email, rollNo, department, college, year, phone, foodPreference, roomNo } = data;
 
-            // Check for duplicates
-            const normalizeEmail = email ? email.toLowerCase() : '';
+            // Check for duplicates by rollNo only
             const normalizeRoll = rollNo ? rollNo.toUpperCase() : '';
 
-            const existsByEmail = normalizeEmail && existingEmails.has(normalizeEmail);
-            const existsByRoll = normalizeRoll && existingRollNos.has(normalizeRoll);
-
-            if (existsByEmail || existsByRoll) {
-                // Skip existing
+            if (normalizeRoll && existingRollNos.has(normalizeRoll)) {
+                skippedDuplicate++;
                 continue;
             }
 
@@ -121,8 +121,7 @@ export async function POST(req: NextRequest) {
                 }
             });
 
-            // Add to local sets to prevent duplicates within the same sheet sync
-            if (normalizeEmail) existingEmails.add(normalizeEmail);
+            // Add to local set to prevent duplicates within the same sheet sync
             if (normalizeRoll) existingRollNos.add(normalizeRoll);
 
             count++;
@@ -142,7 +141,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
             success: true,
             message: `Successfully synced ${count} participants from Google Sheet.`,
-            count: count
+            count: count,
+            totalRows: totalRows,
+            skippedNoName: skippedNoName,
+            skippedDuplicate: skippedDuplicate
         });
 
     } catch (error: any) {

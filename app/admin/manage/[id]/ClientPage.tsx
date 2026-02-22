@@ -17,7 +17,9 @@ import {
     UserPlus,
     Users,
     Trash2,
-    Search
+    Search,
+    Code,
+    Copy
 } from 'lucide-react';
 import { Button } from '@/app/components/ui/Button';
 
@@ -385,12 +387,26 @@ export default function ManageEventPage() {
 
             if (res.ok) {
                 const count = data.count || 0;
-                let successMsg = data.message;
+                const totalRows = data.totalRows || 0;
+                const skippedNoName = data.skippedNoName || 0;
+                const skippedDuplicate = data.skippedDuplicate || 0;
+
+                // Build detailed sync message
+                let successMsg = `Synced ${count} participants from ${totalRows} rows.`;
+                const skippedParts: string[] = [];
+                if (skippedDuplicate > 0) skippedParts.push(`${skippedDuplicate} duplicates`);
+                if (skippedNoName > 0) skippedParts.push(`${skippedNoName} missing name`);
+                if (skippedParts.length > 0) {
+                    successMsg += ` Skipped: ${skippedParts.join(', ')}.`;
+                }
 
                 // 2. Auto-Send Emails if enabled and participants added
                 if (autoSendEmails && count > 0) {
                     setStatus({ type: 'success', msg: `${successMsg} Sending emails...` });
                     setEmailProgress({ total: count, processed: 0, success: 0, failed: 0 }); // Init
+
+                    let finalEmailSuccess = 0;
+                    let finalEmailFailed = 0;
 
                     try {
                         const emailRes = await fetch('/api/email/send', {
@@ -429,8 +445,11 @@ export default function ManageEventPage() {
                                             success: update.success || 0,
                                             failed: update.failed || 0
                                         });
+                                        finalEmailSuccess = update.success || 0;
+                                        finalEmailFailed = update.failed || 0;
                                     } else if (update.status === 'completed') {
-                                        successMsg += ' Emails Sent.';
+                                        finalEmailSuccess = update.success || finalEmailSuccess;
+                                        finalEmailFailed = update.failed || finalEmailFailed;
                                     } else if (update.error) {
                                         console.error('Email Error:', update.error);
                                     }
@@ -439,10 +458,20 @@ export default function ManageEventPage() {
                                 }
                             }
                         }
+
+                        successMsg += ` ✉ Sent: ${finalEmailSuccess}, Failed: ${finalEmailFailed}.`;
                     } catch (emailErr: any) {
                         console.error('Auto-send email failed', emailErr);
                         successMsg += ' But email sending failed.';
                     }
+
+                    // Keep final email progress visible
+                    setEmailProgress({
+                        total: finalEmailSuccess + finalEmailFailed,
+                        processed: finalEmailSuccess + finalEmailFailed,
+                        success: finalEmailSuccess,
+                        failed: finalEmailFailed
+                    });
                 }
 
                 setStatus({ type: 'success', msg: successMsg });
@@ -453,7 +482,6 @@ export default function ManageEventPage() {
             setStatus({ type: 'error', msg: 'Network Error: ' + error.message });
         } finally {
             setSyncingSheet(false);
-            setEmailProgress(null);
         }
     };
 
@@ -605,10 +633,12 @@ export default function ManageEventPage() {
                                     Sync Now
                                 </Button>
 
-                                {syncingSheet && emailProgress && (
-                                    <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-100 animate-in fade-in">
+                                {emailProgress && (
+                                    <div className={`mt-4 p-3 rounded-lg border animate-in fade-in ${!syncingSheet ? 'bg-green-50 border-green-200' : 'bg-purple-50 border-purple-100'}`}>
                                         <div className="flex justify-between items-center mb-2">
-                                            <span className="text-xs font-semibold text-purple-900">Sending Emails...</span>
+                                            <span className={`text-xs font-semibold ${!syncingSheet ? 'text-green-900' : 'text-purple-900'}`}>
+                                                {!syncingSheet ? '✅ Email Summary' : 'Sending Emails...'}
+                                            </span>
                                             <span className="text-[10px] font-mono text-purple-700">
                                                 {emailProgress.processed} / {emailProgress.total}
                                             </span>
@@ -620,8 +650,8 @@ export default function ManageEventPage() {
                                             ></div>
                                         </div>
                                         <div className="flex justify-between text-[10px] text-purple-600">
-                                            <span className="text-green-600 font-medium">Success: {emailProgress.success}</span>
-                                            <span className="text-red-500 font-medium">Failed: {emailProgress.failed}</span>
+                                            <span className="text-green-600 font-medium">✅ Sent: {emailProgress.success}</span>
+                                            <span className="text-red-500 font-medium">❌ Failed: {emailProgress.failed}</span>
                                         </div>
                                     </div>
                                 )}
@@ -700,6 +730,62 @@ export default function ManageEventPage() {
                                     Upload & Process
                                 </Button>
                             )}
+                        </div>
+                    </div>
+
+                    {/* Real-Time Sync (Apps Script) */}
+                    <div className="bg-card border border-border rounded-xl shadow-sm p-6">
+                        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-card-foreground">
+                            <Code className="w-5 h-5 text-amber-600" /> Real-Time Sync (Google Apps Script)
+                        </h2>
+                        <div className="bg-amber-50/50 border border-amber-100 rounded-lg p-5">
+                            <p className="text-sm text-amber-800 mb-4">
+                                To get real-time updates from your restricted Google Sheet, add the provided script to your sheet and configure these values:
+                            </p>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-xs font-semibold text-amber-900 uppercase tracking-wider">Webhook URL</label>
+                                    <div className="flex gap-2 mt-1">
+                                        <code className="flex-1 p-2 bg-white border border-amber-200 rounded text-xs font-mono text-amber-800 overflow-x-auto whitespace-nowrap">
+                                            {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/participants` : '/api/webhooks/participants'}
+                                        </code>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-auto border-amber-200 hover:bg-amber-100 text-amber-800"
+                                            onClick={() => {
+                                                if (typeof window !== 'undefined') {
+                                                    navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/participants`);
+                                                    setStatus({ type: 'success', msg: 'URL copied!' });
+                                                }
+                                            }}
+                                        >
+                                            <Copy className="w-3 h-3" />
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-semibold text-amber-900 uppercase tracking-wider">Event ID</label>
+                                    <div className="flex gap-2 mt-1">
+                                        <code className="flex-1 p-2 bg-white border border-amber-200 rounded text-xs font-mono text-amber-800">
+                                            {eventId}
+                                        </code>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-auto border-amber-200 hover:bg-amber-100 text-amber-800"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(eventId);
+                                                setStatus({ type: 'success', msg: 'Event ID copied!' });
+                                            }}
+                                        >
+                                            <Copy className="w-3 h-3" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
