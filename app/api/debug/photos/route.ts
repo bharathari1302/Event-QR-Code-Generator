@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPhotoUrlByRollNo, refreshPhotoCache, getCacheStats } from '@/lib/googleDriveHelper';
+import { getPhotoUrlByRollNo, refreshPhotoCache, getCacheStats, getSampleCacheKeys } from '@/lib/googleDriveHelper';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,7 +93,11 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({
             message: 'Photo URL test results',
             results,
-            cacheStats,
+            testRollNoMatched: rollNo ? results.find(r => r.rollNo === rollNo) : null,
+            cacheStats: {
+                ...cacheStats,
+                sampleKeys: getSampleCacheKeys(10)
+            },
             env: {
                 folderId: process.env.NEXT_PUBLIC_GOOGLE_DRIVE_FOLDER_ID ? 'Set' : 'Not Set',
                 apiKey: process.env.NEXT_PUBLIC_GOOGLE_API_KEY ? 'Set' : 'Not Set',

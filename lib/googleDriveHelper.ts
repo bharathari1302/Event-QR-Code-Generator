@@ -14,7 +14,7 @@ interface CacheEntry {
     timestamp: number;
 }
 
-const caches = new Map<string, CacheEntry>();
+const driveCaches = new Map<string, CacheEntry>();
 const CACHE_DURATION = 1000 * 60 * 60; // 1 hour
 
 interface DriveFile {
@@ -134,7 +134,7 @@ async function buildPhotoCache(folderId: string): Promise<void> {
         }
     });
 
-    caches.set(folderId, {
+    driveCaches.set(folderId, {
         map: newMap,
         timestamp: Date.now()
     });
@@ -157,12 +157,12 @@ export async function getPhotoUrlByRollNo(rollNo: string | null | undefined, eve
     const folderId = eventFolderId || DEFAULT_DRIVE_FOLDER_ID;
 
     // Get cache entry for this folder
-    let cache = caches.get(folderId);
+    let cache = driveCaches.get(folderId);
 
     // Refresh cache if not exists or expired
     if (!cache || Date.now() - cache.timestamp > CACHE_DURATION) {
         await buildPhotoCache(folderId);
-        cache = caches.get(folderId);
+        cache = driveCaches.get(folderId);
     }
 
     const fileId = cache?.map.get(rollNo);
@@ -208,13 +208,26 @@ export async function refreshPhotoCache(eventFolderId?: string): Promise<void> {
  * Gets cache statistics for debugging
  */
 export function getCacheStats() {
-    // Return stats for all caches combined or just a summary
+    const folders = Array.from(driveCaches.keys()).map(k => ({
+        folderId: k,
+        size: driveCaches.get(k)?.map.size || 0,
+        age: Date.now() - (driveCaches.get(k)?.timestamp || 0)
+    }));
+
     return {
-        totalFolders: caches.size,
-        folders: Array.from(caches.keys()).map(k => ({
-            folderId: k,
-            size: caches.get(k)?.map.size || 0,
-            age: Date.now() - (caches.get(k)?.timestamp || 0)
-        }))
+        totalFolders: driveCaches.size,
+        folders
     };
+}
+
+/**
+ * Gets sample keys from the cache for debugging
+ */
+export function getSampleCacheKeys(limit: number = 10): string[] {
+    if (driveCaches.size === 0) return [];
+    const firstFolderId = driveCaches.keys().next().value;
+    if (!firstFolderId) return [];
+    const map = driveCaches.get(firstFolderId)?.map;
+    if (!map) return [];
+    return Array.from(map.keys()).slice(0, limit);
 }
