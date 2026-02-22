@@ -136,25 +136,31 @@ async function buildPhotoCache(folderId: string): Promise<void> {
     const rollMap = new Map<string, string>();
     const nameMap = new Map<string, string>();
 
-    files.forEach((file, index) => {
+    files.forEach((file) => {
+        const cleanName = file.name.replace(/\.(jpg|jpeg|png|webp|pdf)$/i, '');
+
         // 1. Try Roll Number
         const rollNo = extractRollNoFromFilename(file.name);
         if (rollNo) {
             rollMap.set(rollNo, file.id);
         }
 
-        // 2. Also map by Name (fallback)
-        // Remove extension and normalize
-        const namePart = file.name.replace(/\.(jpg|jpeg|png|webp|pdf)$/i, '').replace(/^[0-9A-Z]{5,}[\s-_]+/, '').trim();
-        if (namePart) {
-            const normalized = normalizeName(namePart);
-            if (normalized) {
-                nameMap.set(normalized, file.id);
+        // 2. Map by Full Name (no extension, normalized)
+        const fullNormalized = normalizeName(cleanName);
+        if (fullNormalized) {
+            // Only set if not already present or if we want to prioritize this file
+            if (!nameMap.has(fullNormalized)) {
+                nameMap.set(fullNormalized, file.id);
             }
         }
 
-        if (index < 5) {
-            console.log(`[PhotoCache] Sample Mapped: "${file.name}" -> Roll: "${rollNo || 'N/A'}", NameKey: "${normalizeName(file.name.replace(/\..*$/, ''))}"`);
+        // 3. Map by Name without Roll (if roll found in filename)
+        if (rollNo) {
+            const nameWithoutRoll = cleanName.replace(new RegExp(rollNo, 'gi'), '').trim();
+            const partNormalized = normalizeName(nameWithoutRoll);
+            if (partNormalized && partNormalized.length > 2 && !nameMap.has(partNormalized)) {
+                nameMap.set(partNormalized, file.id);
+            }
         }
     });
 
@@ -216,8 +222,9 @@ export async function getParticipantPhotoUrl(
         return null;
     }
 
-    // Return Google Drive direct view URL
-    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+    // Return Google Drive Direct API media URL (more reliable for server-side proxy)
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+    return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}`;
 }
 
 /**
