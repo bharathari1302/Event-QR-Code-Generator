@@ -82,6 +82,7 @@ export default function ManageEventPage() {
 
     // Email Progress State
     const [emailProgress, setEmailProgress] = useState<{ total: number, processed: number, success: number, failed: number } | null>(null);
+    const [emailErrors, setEmailErrors] = useState<string[]>([]);
 
 
     useEffect(() => {
@@ -391,6 +392,7 @@ export default function ManageEventPage() {
 
         setSyncingSheet(true);
         setStatus({ type: '', msg: '' });
+        setEmailErrors([]);
 
         try {
             // 1. Sync Data
@@ -474,8 +476,8 @@ export default function ManageEventPage() {
                                     } else if (update.status === 'completed') {
                                         finalEmailSuccess = update.success || finalEmailSuccess;
                                         finalEmailFailed = update.failed || finalEmailFailed;
-                                    } else if (update.error) {
-                                        console.error('Email Error:', update.error);
+                                    } else if (update.status === 'error') {
+                                        setEmailErrors(prev => [...prev, update.error]);
                                     }
                                 } catch (e) {
                                     console.error('JSON Parse Error', e);
@@ -688,6 +690,15 @@ export default function ManageEventPage() {
                                             <span className="text-green-600 font-medium">✅ Sent: {emailProgress.success}</span>
                                             <span className="text-red-500 font-medium">❌ Failed: {emailProgress.failed}</span>
                                         </div>
+                                    </div>
+                                )}
+
+                                {emailErrors.length > 0 && (
+                                    <div className="mt-2 max-h-40 overflow-y-auto p-2 bg-red-50 border border-red-100 rounded text-[10px] text-red-600 font-mono">
+                                        <p className="font-bold mb-1 uppercase">Error Log:</p>
+                                        {emailErrors.map((err, i) => (
+                                            <div key={i} className="mb-1 border-b border-red-100 pb-1 last:border-0">• {err}</div>
+                                        ))}
                                     </div>
                                 )}
 
@@ -1049,6 +1060,7 @@ export default function ManageEventPage() {
                                     setUploading(true);
                                     setStatus({ type: '', msg: '' });
                                     setEmailProgress(null);
+                                    setEmailErrors([]);
 
                                     try {
                                         const res = await fetch('/api/email/send', {
@@ -1090,8 +1102,8 @@ export default function ManageEventPage() {
                                                         });
                                                     } else if (update.status === 'completed') {
                                                         setStatus({ type: 'success', msg: update.message });
-                                                    } else if (update.error) {
-                                                        setStatus({ type: 'error', msg: update.error });
+                                                    } else if (update.status === 'error') {
+                                                        setEmailErrors(prev => [...prev, update.error]);
                                                     }
                                                 } catch (e) {
                                                     console.error('JSON Parse Error', e);
@@ -1130,6 +1142,19 @@ export default function ManageEventPage() {
                                     <div className="flex justify-between text-xs text-purple-600">
                                         <span className="text-green-600 font-medium">Success: {emailProgress.success}</span>
                                         <span className="text-red-500 font-medium">Failed: {emailProgress.failed}</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {emailErrors.length > 0 && (
+                                <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg max-h-48 overflow-y-auto">
+                                    <h4 className="text-xs font-bold text-red-700 uppercase mb-2">Error Details</h4>
+                                    <div className="space-y-2">
+                                        {emailErrors.map((err, i) => (
+                                            <div key={i} className="text-[10px] text-red-600 font-mono bg-white p-2 rounded border border-red-50 leading-relaxed">
+                                                {err}
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             )}
