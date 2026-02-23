@@ -75,134 +75,97 @@ export async function generateInvitationPDF(participant: Participant, options: P
         // --- Page Styling ---
         const pageWidth = 210;
         const pageHeight = 297;
+        const startY = 20;
 
-        // --- 1. Authentic Perforated Ticket Border ---
-        const ticketMargin = 15;
-        const ticketWidth = pageWidth - (ticketMargin * 2);
-        const ticketHeight = 260; // Standard ticket height
-        const startX = ticketMargin;
-        const startY = 15;
-
-        // Draw main ticket body
-        doc.setDrawColor(meal.color[0], meal.color[1], meal.color[2] as number);
-        doc.setLineWidth(1.0);
-        doc.rect(startX, startY, ticketWidth, ticketHeight);
-
-        // Radial Perforated Cuts (Series of punch-outs on left and right)
-        const perforationCount = 20; // Number of holes along the side
-        const perfRadius = 3;
-        const perfSpacing = ticketHeight / perforationCount;
-
-        doc.setFillColor(255, 255, 255); // Match page background
-        for (let j = 0; j <= perforationCount; j++) {
-            const py = startY + (j * perfSpacing);
-            doc.circle(startX, py, perfRadius, 'FD');
-            doc.circle(startX + ticketWidth, py, perfRadius, 'FD');
-        }
-
-        // --- 2. Solid Logo Header ---
+        // --- 1. Top Centered Logo ---
         const logoBase64 = getLogoBase64();
         if (logoBase64) {
-            const logoW = 60;
-            const logoH = 24;
-            doc.addImage(logoBase64, 'PNG', (pageWidth - logoW) / 2, startY + 12, logoW, logoH);
+            const logoW = 50;
+            const logoH = 20; // approx 2.5:1
+            doc.addImage(logoBase64, 'PNG', (pageWidth - logoW) / 2, startY, logoW, logoH);
         }
 
-        // --- 3. Meal Type & Information with Star Accents ---
+        // --- 2. Meal Header ---
         doc.setTextColor(meal.color[0], meal.color[1], meal.color[2] as number);
-        doc.setFontSize(32);
+        doc.setFontSize(36);
         doc.setFont("helvetica", "bold");
-
-        // Stars on either side of meal name
-        const mealY = startY + 52;
-        doc.text("★", startX + 15, mealY);
-        doc.text(meal.name, pageWidth / 2, mealY, { align: "center" });
-        doc.text("★", startX + ticketWidth - 15, mealY, { align: "right" });
+        doc.text(meal.name, pageWidth / 2, startY + 40, { align: "center" });
 
         doc.setTextColor(100, 100, 100);
         doc.setFontSize(12);
         doc.setFont("helvetica", "normal");
-        const eventLabel = (participant.event_name || 'EVENT').toUpperCase();
-        doc.text(`OFFICIAL PASS • ${eventLabel}`, pageWidth / 2, startY + 60, { align: "center" });
+        const eLabel = (participant.event_name || 'EVENT').toUpperCase();
+        doc.text(`INVITATION FOR ${eLabel}`, pageWidth / 2, startY + 48, { align: "center" });
 
-        // Participant Section
+        // Subtle Horizontal Divider
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.2);
+        doc.line(40, startY + 58, pageWidth - 40, startY + 58);
+
+        // --- 3. Participant Details ---
         doc.setTextColor(0, 0, 0);
-        doc.setFontSize(26);
+        doc.setFontSize(28);
         doc.setFont("helvetica", "bold");
-        doc.text(participant.name, pageWidth / 2, startY + 85, { align: "center" });
+        doc.text(participant.name.toUpperCase(), pageWidth / 2, startY + 75, { align: "center" });
 
-        doc.setFontSize(13);
+        doc.setFontSize(14);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(100, 100, 100);
 
-        let dY = startY + 95;
+        let dY = startY + 85;
         if (participant.rollNo) {
             doc.text(`Roll No: ${participant.rollNo}`, pageWidth / 2, dY, { align: "center" });
-            dY += 7;
+            dY += 8;
         }
 
         if (participant.roomNo) {
             doc.text(`Room No: ${participant.roomNo}`, pageWidth / 2, dY, { align: "center" });
-            dY += 7;
+            dY += 8;
         }
 
         // Food Preference
         if (!['SNACKS', 'ICE CREAM'].includes(meal.name.toUpperCase())) {
             const pref = participant.foodPreference?.toUpperCase() || 'VEG';
             const isVeg = pref.includes('VEG') && !pref.includes('NON');
-            doc.setFontSize(14);
+            doc.setFontSize(15);
             doc.setFont("helvetica", "bold");
             if (isVeg) {
-                doc.setTextColor(76, 175, 80);
+                doc.setTextColor(76, 175, 80); // Green
             } else {
-                doc.setTextColor(211, 47, 47);
+                doc.setTextColor(211, 47, 47); // Red
             }
-            doc.text(pref, pageWidth / 2, dY + 5, { align: "center" });
+            doc.text(pref, pageWidth / 2, dY + 8, { align: "center" });
         }
 
-
-        // --- 4. Stub Division ---
-        const stubY = startY + 140;
-        const notchR = 8;
-
-        doc.setFillColor(255, 255, 255);
-        doc.circle(startX, stubY, notchR, 'FD');
-        doc.circle(startX + ticketWidth, stubY, notchR, 'FD');
-
-        // Dashed Perforation
-        (doc as any).setLineDash([2, 1], 0);
-        doc.setDrawColor(meal.color[0], meal.color[1], meal.color[2] as number, 0.4);
-        doc.line(startX + notchR, stubY, startX + ticketWidth - notchR, stubY);
-        (doc as any).setLineDash([], 0);
-
-
-        // --- 5. QR Code "Stub" area ---
-        let qPay = `${participant.ticket_id}|${meal.name.toLowerCase()}`;
+        // --- 4. Large Centered QR Code ---
+        let qPayload = `${participant.ticket_id}|${meal.name.toLowerCase()}`;
         let qUrl;
         try {
-            qUrl = await QRCode.toDataURL(qPay, { width: 400, margin: 1, errorCorrectionLevel: 'H' });
+            qUrl = await QRCode.toDataURL(qPayload, { width: 400, margin: 1, errorCorrectionLevel: 'H' });
         } catch (error) {
             qUrl = await QRCode.toDataURL(`${participant.token}|${meal.name.toLowerCase()}`, { width: 400 });
         }
 
-        const qS = 80;
-        doc.addImage(qUrl, 'PNG', (pageWidth - qS) / 2, stubY + 20, qS, qS);
+        const qSSize = 85;
+        doc.addImage(qUrl, 'PNG', (pageWidth - qSSize) / 2, startY + 120, qSSize, qSSize);
 
+        // Verification Instructions
+        doc.setFontSize(11);
+        doc.setTextColor(150, 150, 150);
+        doc.setFont("helvetica", "normal");
+        doc.text("Scan this QR Code at the counter for verification", pageWidth / 2, startY + 215, { align: "center" });
+
+        // Ticket ID
+        doc.setTextColor(100, 100, 100);
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text(`TICKET ID: ${participant.ticket_id}`, pageWidth / 2, startY + 223, { align: "center" });
+
+        // --- 5. Clean Footer ---
         doc.setFontSize(10);
         doc.setTextColor(150, 150, 150);
         doc.setFont("helvetica", "normal");
-        doc.text("SCAN FOR ADMISSION", pageWidth / 2, stubY + 108, { align: "center" });
-
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text(`TICKET: ${participant.ticket_id}`, pageWidth / 2, stubY + 115, { align: "center" });
-
-        // Footer
-        doc.setFontSize(9);
-        doc.setTextColor(150, 150, 150);
-        doc.setFont("helvetica", "normal");
-        doc.text("System Powered by Q-Swift • Developed by BHARAT HARI S - AIML", pageWidth / 2, pageHeight - 15, { align: "center" });
+        doc.text("Developed by BHARAT HARI S - AIML", pageWidth / 2, pageHeight - 15, { align: "center" });
     }
 
     return Buffer.from(doc.output('arraybuffer'));
