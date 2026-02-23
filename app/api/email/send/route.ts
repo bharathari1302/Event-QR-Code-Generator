@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
                                     htmlBody = `<p>Hello <strong>${p.name}</strong>,</p><p>Here is your coupon sheet for <strong>${realEventName}</strong>.<br/>Generated via Q-Swift.</p>`;
                                 }
 
-                                const sent = await sendEmail({
+                                const result = await sendEmail({
                                     to: p.email,
                                     subject,
                                     text: 'Please check the attachment.',
@@ -105,14 +105,24 @@ export async function POST(req: NextRequest) {
                                     }]
                                 });
 
-                                if (sent) {
+                                if (result.success) {
                                     batch.update(doc.ref, { status: 'sent' });
                                     successCount++;
                                 } else {
                                     failCount++;
+                                    // Send individual failure reason
+                                    controller.enqueue(encoder.encode(JSON.stringify({
+                                        status: 'error',
+                                        error: `Failed for ${p.name}: ${result.error}`,
+                                        participant: p.name
+                                    }) + '\n'));
                                 }
                             } else {
                                 failCount++;
+                                controller.enqueue(encoder.encode(JSON.stringify({
+                                    status: 'error',
+                                    error: `No email found for ${p.name}`
+                                }) + '\n'));
                             }
                         } catch (err) {
                             console.error('Error', err);

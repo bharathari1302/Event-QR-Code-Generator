@@ -38,10 +38,11 @@ interface EmailOptions {
     }[];
 }
 
-export async function sendEmail({ to, subject, text, html, attachments }: EmailOptions) {
+export async function sendEmail({ to, subject, text, html, attachments }: EmailOptions): Promise<{ success: boolean; error?: string }> {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        console.error('Missing EMAIL_USER or EMAIL_PASS environment variables.');
-        return false;
+        const msg = 'Missing EMAIL_USER or EMAIL_PASS environment variables.';
+        console.error(msg);
+        return { success: false, error: msg };
     }
 
     try {
@@ -55,18 +56,19 @@ export async function sendEmail({ to, subject, text, html, attachments }: EmailO
             attachments,
         });
         console.log(`Email sent successfully to ${to}: ${info.messageId}`);
-        return true;
+        return { success: true };
     } catch (error: any) {
+        const errorMessage = error.message || error.toString();
         console.error(`Failed to send email to ${to}. Error details:`, error);
 
         // Log to file for easier debugging
         try {
-            const logEntry = `[${new Date().toISOString()}] Failed to send to ${to}: ${error.toString()} \nStack: ${error.stack}\n---\n`;
+            const logEntry = `[${new Date().toISOString()}] Failed to send to ${to}: ${errorMessage} \nStack: ${error.stack}\n---\n`;
             fs.appendFileSync('email-error.log', logEntry);
         } catch (logError) {
             console.error('Failed to write to log file:', logError);
         }
 
-        return false;
+        return { success: false, error: errorMessage };
     }
 }
