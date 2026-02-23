@@ -76,44 +76,60 @@ export async function generateInvitationPDF(participant: Participant, options: P
         const pageWidth = 210;
         const pageHeight = 297;
 
-        // --- 1. Ticket Border with Notches ---
-        const ticketMargin = 10;
+        // --- 1. Authentic Ticket Stub Border ---
+        const ticketMargin = 12;
         const ticketWidth = pageWidth - (ticketMargin * 2);
-        const ticketHeight = 260; // Total height of the ticket area
+        const ticketHeight = 265;
         const startX = ticketMargin;
-        const startY = 15;
+        const startY = 12;
 
-        // Draw the main border
-        doc.setDrawColor(meal.color[0], meal.color[1], meal.color[2] as number);
-        doc.setLineWidth(1.2);
-        doc.rect(startX, startY, ticketWidth, ticketHeight);
+        // Define Notch Geometry
+        const notchRadius = 7;
+        const notchY = startY + 115; // Centered stub division
 
-        // Hallmark "Ticket Notches" (semi-circles on sides)
-        const notchRadius = 6;
-        const notchY = startY + (ticketHeight / 2) + 15; // Positioned below participant details
-
-        doc.setFillColor(255, 255, 255); // Match page background
+        // Draw Border Segments to allow "punch-out" look
         doc.setDrawColor(meal.color[0], meal.color[1], meal.color[2] as number);
         doc.setLineWidth(1.2);
 
-        // Left Notch
+        // Top edge
+        doc.line(startX, startY, startX + ticketWidth, startY);
+        // Bottom edge
+        doc.line(startX, startY + ticketHeight, startX + ticketWidth, startY + ticketHeight);
+
+        // Left edge (broken by notch)
+        doc.line(startX, startY, startX, notchY - notchRadius);
+        doc.line(startX, notchY + notchRadius, startX, startY + ticketHeight);
+
+        // Right edge (broken by notch)
+        doc.line(startX + ticketWidth, startY, startX + ticketWidth, notchY - notchRadius);
+        doc.line(startX + ticketWidth, notchY + notchRadius, startX + ticketWidth, startY + ticketHeight);
+
+        // Draw the Notches (Circular cut-outs)
+        doc.setFillColor(255, 255, 255);
         doc.circle(startX, notchY, notchRadius, 'FD');
-        // Right Notch
         doc.circle(startX + ticketWidth, notchY, notchRadius, 'FD');
 
+        // Add Perforation Line (Dashed)
+        (doc as any).setLineDash([2, 1], 0);
+        doc.setDrawColor(meal.color[0], meal.color[1], meal.color[2] as number);
+        doc.line(startX + notchRadius, notchY, startX + ticketWidth - notchRadius, notchY);
+        (doc as any).setLineDash([], 0); // Reset dash
 
-        // --- 2. Background Watermark (Higher & More Visible) ---
+
+        // --- 2. Background Watermark (Aspect Ratio Fixed) ---
         const logoBase64 = getLogoBase64();
         if (logoBase64) {
             try {
                 // @ts-ignore
-                const gState = new (doc as any).GState({ opacity: 0.18 });
+                const gState = new (doc as any).GState({ opacity: 0.15 });
                 (doc as any).setGState(gState);
             } catch (e) { }
 
-            const wmSize = 90;
-            // Positioned higher to ensure visibility and prevent QR overlap
-            doc.addImage(logoBase64, 'PNG', (pageWidth - wmSize) / 2, startY + 25, wmSize, wmSize);
+            // Q-Swift Logo is roughly 2.5:1 aspect ratio
+            const wmWidth = 100;
+            const wmHeight = 40;
+            // Positioned behind header/details higher up
+            doc.addImage(logoBase64, 'PNG', (pageWidth - wmWidth) / 2, startY + 35, wmWidth, wmHeight);
 
             try {
                 // @ts-ignore
@@ -123,32 +139,31 @@ export async function generateInvitationPDF(participant: Participant, options: P
         }
 
 
-        // --- 3. Header Section (Utilizing space from removed logo) ---
+        // --- 3. Header Section (Optimized Spacing) ---
         // Meal Name
         doc.setTextColor(meal.color[0], meal.color[1], meal.color[2] as number);
-        doc.setFontSize(38);
+        doc.setFontSize(40);
         doc.setFont("helvetica", "bold");
-        doc.text(meal.name, pageWidth / 2, startY + 25, { align: "center" });
+        doc.text(meal.name, pageWidth / 2, startY + 28, { align: "center" });
 
         // Event Context
         doc.setTextColor(80, 80, 80);
-        doc.setFontSize(14);
+        doc.setFontSize(13);
         doc.setFont("helvetica", "normal");
         const eName = (participant.event_name || 'EVENT').toUpperCase();
-        doc.text(`INVITATION FOR ${eName}`, pageWidth / 2, startY + 35, { align: "center" });
+        doc.text(`INVITATION FOR ${eName}`, pageWidth / 2, startY + 38, { align: "center" });
 
         // --- Participant Details ---
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(28);
         doc.setFont("helvetica", "bold");
-        doc.text(participant.name, pageWidth / 2, startY + 65, { align: "center" });
+        doc.text(participant.name, pageWidth / 2, startY + 70, { align: "center" });
 
-        // Student Specifics
         doc.setFontSize(14);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(100, 100, 100);
 
-        let detailsY = startY + 75;
+        let detailsY = startY + 80;
         if (participant.rollNo) {
             doc.text(`Roll No: ${participant.rollNo}`, pageWidth / 2, detailsY, { align: "center" });
             detailsY += 8;
@@ -175,37 +190,37 @@ export async function generateInvitationPDF(participant: Participant, options: P
         }
 
 
-        // --- 4. Large QR Code - Bottom Section ---
+        // --- 4. QR Code & Validation (Stub Segment) ---
         let qrPayload = `${participant.ticket_id}|${meal.name.toLowerCase()}`;
         let qrDataUrl;
         try {
             qrDataUrl = await QRCode.toDataURL(qrPayload, {
                 width: 400,
                 margin: 1,
-                errorCorrectionLevel: 'H',
-                type: 'image/png'
+                errorCorrectionLevel: 'H'
             });
         } catch (error) {
             try {
                 qrDataUrl = await QRCode.toDataURL(`${participant.token}|${meal.name.toLowerCase()}`, { width: 400 });
             } catch (fallbackError) {
-                throw new Error('Unable to generate QR code');
+                throw new Error('QR failed');
             }
         }
 
         const qrSize = 85;
-        // Centered below the notches
-        doc.addImage(qrDataUrl, 'PNG', (pageWidth - qrSize) / 2, startY + 140, qrSize, qrSize);
+        // Positioned in the "Stub" area (below notches)
+        doc.addImage(qrDataUrl, 'PNG', (pageWidth - qrSize) / 2, notchY + 20, qrSize, qrSize);
 
         doc.setFontSize(11);
         doc.setTextColor(150, 150, 150);
         doc.setFont("helvetica", "normal");
-        doc.text("Scan this QR Code at the counter for verification", pageWidth / 2, startY + 230, { align: "center" });
+        doc.text("Scan this QR Code at the counter for verification", pageWidth / 2, notchY + 110, { align: "center" });
+
         doc.setTextColor(100, 100, 100);
         doc.setFont("helvetica", "bold");
-        doc.text(`TICKET ID: ${participant.ticket_id}`, pageWidth / 2, startY + 238, { align: "center" });
+        doc.text(`TICKET ID: ${participant.ticket_id}`, pageWidth / 2, notchY + 118, { align: "center" });
 
-        // --- 5. Footer Credit ---
+        // --- 5. Final Professional Footer ---
         doc.setFontSize(10);
         doc.setTextColor(150, 150, 150);
         doc.setFont("helvetica", "normal");
