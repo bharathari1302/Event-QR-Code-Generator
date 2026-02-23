@@ -172,7 +172,7 @@ export default function LoginPage() {
 
                 {/* Footer */}
                 <div className="bg-gray-50 p-4 text-center border-t border-gray-200">
-                    <p className="text-xs text-gray-400">© 2026 Q-Swift • developed by AIML</p>
+                    <p className="text-xs text-gray-400">Developed by <span className="font-semibold text-gray-600">BHARAT HARI S</span> — AIML</p>
                 </div>
 
             </div>

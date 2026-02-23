@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   },
   description: "Q-Swift - Professional Event QR & Token Verification System",
   icons: {
-    icon: '/logo.png',
+    icon: '/favicon.png',
   }
 };
 

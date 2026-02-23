@@ -76,74 +76,73 @@ export async function generateInvitationPDF(participant: Participant, options: P
         const pageWidth = 210;
         const pageHeight = 297;
 
-        // Header Strip
-        doc.setFillColor(meal.color[0], meal.color[1], meal.color[2] as number);
-        doc.rect(0, 0, pageWidth, 40, 'F'); // Top Header
-
-        // Add Logo
+        // Add Logo - Centered at the top
         const logoBase64 = getLogoBase64();
         if (logoBase64) {
-            // New Layout: More professional sizing (preserving aspect ratio)
-            // Assuming the new logo is roughly 2:1 ratio
-            doc.addImage(logoBase64, 'PNG', 12, 5, 40, 25);
+            // Professional sizing: 60mm width, centered
+            const logoWidth = 60;
+            const logoHeight = 30; // Adaptive based on 2:1 ratio
+            doc.addImage(logoBase64, 'PNG', (pageWidth - logoWidth) / 2, 20, logoWidth, logoHeight);
         }
 
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(24);
+        // Meal Name - Centered below logo
+        doc.setTextColor(meal.color[0], meal.color[1], meal.color[2] as number);
+        doc.setFontSize(32);
         doc.setFont("helvetica", "bold");
-        doc.text(meal.name, pageWidth / 2 + 25, 25, { align: "center" });
+        doc.text(meal.name, pageWidth / 2, 65, { align: "center" });
 
-        // Event Name
-        doc.setTextColor(50, 50, 50);
-        doc.setFontSize(16);
-        doc.setFont("helvetica", "normal");
-        const eName = (participant.event_name || 'EVENT').toUpperCase();
-        doc.text(eName, pageWidth / 2, 55, { align: "center" });
-
-        // --- Participant Details ---
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(22);
-        doc.setFont("helvetica", "bold");
-        doc.text(participant.name, pageWidth / 2, 75, { align: "center" });
-
-        // Student Details Grid
+        // Event Context
+        doc.setTextColor(80, 80, 80);
         doc.setFontSize(14);
         doc.setFont("helvetica", "normal");
-        doc.setTextColor(80, 80, 80);
+        const eName = (participant.event_name || 'EVENT').toUpperCase();
+        doc.text(`INVITATION FOR ${eName}`, pageWidth / 2, 75, { align: "center" });
 
-        const startY = 90;
-        const gap = 10;
+        // --- Participant Details Card ---
+        // Subtle divider
+        doc.setDrawColor(230, 230, 230);
+        doc.setLineWidth(0.5);
+        doc.line(40, 85, 170, 85);
 
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(24);
+        doc.setFont("helvetica", "bold");
+        doc.text(participant.name, pageWidth / 2, 100, { align: "center" });
+
+        // Student Specifics
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+
+        let detailsY = 110;
         if (participant.rollNo) {
-            doc.text(`Roll No: ${participant.rollNo}`, pageWidth / 2, startY, { align: "center" });
+            doc.text(`Roll No: ${participant.rollNo}`, pageWidth / 2, detailsY, { align: "center" });
+            detailsY += 8;
         }
 
         if (participant.roomNo) {
-            doc.text(`Room No: ${participant.roomNo}`, pageWidth / 2, startY + gap, { align: "center" });
+            doc.text(`Room No: ${participant.roomNo}`, pageWidth / 2, detailsY, { align: "center" });
+            detailsY += 8;
         }
 
-        // Food Preference (Badge Style)
-        // Skip for Snacks and Ice Cream
+        // Food Preference Badge
         if (!['SNACKS', 'ICE CREAM'].includes(meal.name.toUpperCase())) {
             const pref = participant.foodPreference?.toUpperCase() || 'NOT SPECIFIED';
             const isVeg = pref.includes('VEG') && !pref.includes('NON');
 
-            doc.setFontSize(16);
+            doc.setFontSize(14);
             doc.setFont("helvetica", "bold");
             if (isVeg) {
                 doc.setTextColor(76, 175, 80); // Green
             } else {
                 doc.setTextColor(211, 47, 47); // Red
             }
-            doc.text(pref, pageWidth / 2, startY + gap * 2 + 5, { align: "center" });
+            doc.text(pref, pageWidth / 2, detailsY + 5, { align: "center" });
         }
 
 
-        // --- Large QR Code ---
-        // Store ticket_id AND meal name for instant verification
-        // Format: TICKET_ID|MEAL_NAME (e.g., INV-123456|breakfast)
+        // --- Large QR Code - Bottom Section ---
         let qrPayload = `${participant.ticket_id}|${meal.name.toLowerCase()}`;
-
         let qrDataUrl;
         try {
             qrDataUrl = await QRCode.toDataURL(qrPayload, {
@@ -154,31 +153,34 @@ export async function generateInvitationPDF(participant: Participant, options: P
             });
         } catch (error) {
             console.error('QR Code generation error:', error);
-            // Fallback: Try with token if ticket_id fails (legacy support)
             try {
-                // Also append meal to token fallback
                 qrDataUrl = await QRCode.toDataURL(`${participant.token}|${meal.name.toLowerCase()}`, {
                     width: 400,
                     margin: 1,
                     errorCorrectionLevel: 'M'
                 });
             } catch (fallbackError) {
-                console.error('Fallback QR generation also failed:', fallbackError);
-                throw new Error('Unable to generate QR code for invitation');
+                throw new Error('Unable to generate QR code');
             }
         }
-        doc.addImage(qrDataUrl, 'PNG', (pageWidth - 80) / 2, 140, 80, 80);
 
+        // Center the QR Code
+        const qrSize = 75;
+        doc.addImage(qrDataUrl, 'PNG', (pageWidth - qrSize) / 2, 145, qrSize, qrSize);
+
+        doc.setFontSize(11);
+        doc.setTextColor(150, 150, 150);
+        doc.setFont("helvetica", "normal");
+        doc.text("Scan this QR Code at the counter for verification", pageWidth / 2, 230, { align: "center" });
+        doc.setTextColor(100, 100, 100);
+        doc.setFont("helvetica", "bold");
+        doc.text(`TICKET ID: ${participant.ticket_id}`, pageWidth / 2, 238, { align: "center" });
+
+        // --- Footer Credit ---
         doc.setFontSize(10);
         doc.setTextColor(150, 150, 150);
         doc.setFont("helvetica", "normal");
-        doc.text("Scan this QR Code at the counter", pageWidth / 2, 230, { align: "center" });
-        doc.text(`ID: ${participant.ticket_id}`, pageWidth / 2, 235, { align: "center" });
-
-        // --- Footer Credit (On Each Page) ---
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text("Developed by BHARAT HARI S - AIML", pageWidth / 2, pageHeight - 10, { align: "center" });
+        doc.text("Developed by BHARAT HARI S - AIML", pageWidth / 2, pageHeight - 15, { align: "center" });
     }
 
     return Buffer.from(doc.output('arraybuffer'));
