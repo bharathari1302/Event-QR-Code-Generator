@@ -76,51 +76,54 @@ export async function generateInvitationPDF(participant: Participant, options: P
         const pageWidth = 210;
         const pageHeight = 297;
 
-        // --- 1. Premium Angled-Corner Border ---
+        // --- 1. Authentic Perforated Ticket Border ---
         const ticketMargin = 15;
         const ticketWidth = pageWidth - (ticketMargin * 2);
-        const ticketHeight = 260;
+        const ticketHeight = 260; // Standard ticket height
         const startX = ticketMargin;
         const startY = 15;
-        const clip = 6; // 6mm corner clipping
 
+        // Draw main ticket body
         doc.setDrawColor(meal.color[0], meal.color[1], meal.color[2] as number);
-        doc.setLineWidth(1.5);
+        doc.setLineWidth(1.0);
+        doc.rect(startX, startY, ticketWidth, ticketHeight);
 
-        // Draw clipped-corner border manually
-        // Top-Left clip to Top-Right clip
-        doc.line(startX + clip, startY, startX + ticketWidth - clip, startY);
-        // Top-Right clip down
-        doc.line(startX + ticketWidth - clip, startY, startX + ticketWidth, startY + clip);
-        doc.line(startX + ticketWidth, startY + clip, startX + ticketWidth, startY + ticketHeight - clip);
-        // Bottom-Right clip
-        doc.line(startX + ticketWidth, startY + ticketHeight - clip, startX + ticketWidth - clip, startY + ticketHeight);
-        doc.line(startX + ticketWidth - clip, startY + ticketHeight, startX + clip, startY + ticketHeight);
-        // Bottom-Left clip
-        doc.line(startX + clip, startY + ticketHeight, startX, startY + ticketHeight - clip);
-        doc.line(startX, startY + ticketHeight - clip, startX, startY + clip);
-        // Top-Left clip closing
-        doc.line(startX, startY + clip, startX + clip, startY);
+        // Radial Perforated Cuts (Series of punch-outs on left and right)
+        const perforationCount = 20; // Number of holes along the side
+        const perfRadius = 3;
+        const perfSpacing = ticketHeight / perforationCount;
 
-        // --- 2. Solid Logo Header (Professional Branding) ---
+        doc.setFillColor(255, 255, 255); // Match page background
+        for (let j = 0; j <= perforationCount; j++) {
+            const py = startY + (j * perfSpacing);
+            doc.circle(startX, py, perfRadius, 'FD');
+            doc.circle(startX + ticketWidth, py, perfRadius, 'FD');
+        }
+
+        // --- 2. Solid Logo Header ---
         const logoBase64 = getLogoBase64();
         if (logoBase64) {
             const logoW = 60;
-            const logoH = 24; // approx 2.5:1
+            const logoH = 24;
             doc.addImage(logoBase64, 'PNG', (pageWidth - logoW) / 2, startY + 12, logoW, logoH);
         }
 
-        // --- 3. Meal Type & Information ---
+        // --- 3. Meal Type & Information with Star Accents ---
         doc.setTextColor(meal.color[0], meal.color[1], meal.color[2] as number);
         doc.setFontSize(32);
         doc.setFont("helvetica", "bold");
-        doc.text(meal.name, pageWidth / 2, startY + 52, { align: "center" });
+
+        // Stars on either side of meal name
+        const mealY = startY + 52;
+        doc.text("★", startX + 15, mealY);
+        doc.text(meal.name, pageWidth / 2, mealY, { align: "center" });
+        doc.text("★", startX + ticketWidth - 15, mealY, { align: "right" });
 
         doc.setTextColor(100, 100, 100);
         doc.setFontSize(12);
         doc.setFont("helvetica", "normal");
         const eventLabel = (participant.event_name || 'EVENT').toUpperCase();
-        doc.text(`OFFICIAL INVITATION • ${eventLabel}`, pageWidth / 2, startY + 60, { align: "center" });
+        doc.text(`OFFICIAL PASS • ${eventLabel}`, pageWidth / 2, startY + 60, { align: "center" });
 
         // Participant Section
         doc.setTextColor(0, 0, 0);
@@ -132,15 +135,15 @@ export async function generateInvitationPDF(participant: Participant, options: P
         doc.setFont("helvetica", "normal");
         doc.setTextColor(100, 100, 100);
 
-        let detailsY = startY + 95;
+        let dY = startY + 95;
         if (participant.rollNo) {
-            doc.text(`Roll No: ${participant.rollNo}`, pageWidth / 2, detailsY, { align: "center" });
-            detailsY += 7;
+            doc.text(`Roll No: ${participant.rollNo}`, pageWidth / 2, dY, { align: "center" });
+            dY += 7;
         }
 
         if (participant.roomNo) {
-            doc.text(`Room No: ${participant.roomNo}`, pageWidth / 2, detailsY, { align: "center" });
-            detailsY += 7;
+            doc.text(`Room No: ${participant.roomNo}`, pageWidth / 2, dY, { align: "center" });
+            dY += 7;
         }
 
         // Food Preference
@@ -154,41 +157,36 @@ export async function generateInvitationPDF(participant: Participant, options: P
             } else {
                 doc.setTextColor(211, 47, 47);
             }
-            doc.text(pref, pageWidth / 2, detailsY + 5, { align: "center" });
+            doc.text(pref, pageWidth / 2, dY + 5, { align: "center" });
         }
 
 
-        // --- 4. Stub Division (Perforation) ---
+        // --- 4. Stub Division ---
         const stubY = startY + 140;
         const notchR = 8;
 
-        // Larger semi-circular notches
         doc.setFillColor(255, 255, 255);
         doc.circle(startX, stubY, notchR, 'FD');
         doc.circle(startX + ticketWidth, stubY, notchR, 'FD');
 
         // Dashed Perforation
         (doc as any).setLineDash([2, 1], 0);
-        doc.setDrawColor(meal.color[0], meal.color[1], meal.color[2] as number);
+        doc.setDrawColor(meal.color[0], meal.color[1], meal.color[2] as number, 0.4);
         doc.line(startX + notchR, stubY, startX + ticketWidth - notchR, stubY);
         (doc as any).setLineDash([], 0);
 
 
         // --- 5. QR Code "Stub" area ---
-        let qrPayload = `${participant.ticket_id}|${meal.name.toLowerCase()}`;
-        let qrDataUrl;
+        let qPay = `${participant.ticket_id}|${meal.name.toLowerCase()}`;
+        let qUrl;
         try {
-            qrDataUrl = await QRCode.toDataURL(qrPayload, {
-                width: 400,
-                margin: 1,
-                errorCorrectionLevel: 'H'
-            });
+            qUrl = await QRCode.toDataURL(qPay, { width: 400, margin: 1, errorCorrectionLevel: 'H' });
         } catch (error) {
-            qrDataUrl = await QRCode.toDataURL(`${participant.token}|${meal.name.toLowerCase()}`, { width: 400 });
+            qUrl = await QRCode.toDataURL(`${participant.token}|${meal.name.toLowerCase()}`, { width: 400 });
         }
 
-        const qrS = 80;
-        doc.addImage(qrDataUrl, 'PNG', (pageWidth - qrS) / 2, stubY + 20, qrS, qrS);
+        const qS = 80;
+        doc.addImage(qUrl, 'PNG', (pageWidth - qS) / 2, stubY + 20, qS, qS);
 
         doc.setFontSize(10);
         doc.setTextColor(150, 150, 150);
@@ -204,7 +202,7 @@ export async function generateInvitationPDF(participant: Participant, options: P
         doc.setFontSize(9);
         doc.setTextColor(150, 150, 150);
         doc.setFont("helvetica", "normal");
-        doc.text("System Powered by Q-Swift • developed by BHARAT HARI S - AIML", pageWidth / 2, pageHeight - 15, { align: "center" });
+        doc.text("System Powered by Q-Swift • Developed by BHARAT HARI S - AIML", pageWidth / 2, pageHeight - 15, { align: "center" });
     }
 
     return Buffer.from(doc.output('arraybuffer'));
