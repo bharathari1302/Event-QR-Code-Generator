@@ -7,11 +7,12 @@ export async function GET() {
     const user = process.env.EMAIL_USER;
     const pass = process.env.EMAIL_PASS;
     const host = process.env.EMAIL_HOST;
+    const normalizedPass = pass?.replace(/\s+/g, '');
 
     const results: any = {
         config: {
             EMAIL_USER: user ? `${user.substring(0, 3)}****${user.split('@')[1] || ''}` : 'MISSING',
-            EMAIL_PASS_SET: pass ? 'YES (Length: ' + pass.length + ')' : 'NO',
+            EMAIL_PASS_SET: pass ? 'YES (Length: ' + pass.length + ', Normalized: ' + (normalizedPass?.length || 0) + ')' : 'NO',
             EMAIL_HOST: host || 'gmail (default)',
         },
         env: process.env.NODE_ENV,
@@ -29,7 +30,7 @@ export async function GET() {
             }),
             auth: {
                 user: user,
-                pass: pass,
+                pass: normalizedPass,
             },
             tls: {
                 minVersion: 'TLSv1.2',

@@ -16,7 +16,7 @@ const transporter = nodemailer.createTransport({
     maxMessages: 100,
     auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        pass: process.env.EMAIL_PASS?.replace(/\s+/g, ''),
     },
     // Fix for DECODER routines error in production (Node.js 18+)
     // This configures TLS to use modern ciphers compatible with Gmail
