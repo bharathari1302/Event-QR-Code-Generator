@@ -76,52 +76,73 @@ export async function generateInvitationPDF(participant: Participant, options: P
         const pageWidth = 210;
         const pageHeight = 297;
 
-        // Add Logo - Centered at the top
+        // 1. Add Premium Side Strip (Vibrant visual cue)
+        doc.setFillColor(meal.color[0], meal.color[1], meal.color[2] as number);
+        doc.rect(0, 0, 5, pageHeight, 'F');
+
+        // 2. Add Background Watermark (Subtle and Professional)
         const logoBase64 = getLogoBase64();
         if (logoBase64) {
-            // Professional sizing: 60mm width, centered
-            const logoWidth = 60;
-            const logoHeight = 30; // Adaptive based on 2:1 ratio
-            doc.addImage(logoBase64, 'PNG', (pageWidth - logoWidth) / 2, 20, logoWidth, logoHeight);
+            // Use Graphics State for high transparency watermark if available
+            try {
+                // @ts-ignore - GState is supported by jsPDF but often missing from basic definitions
+                const gState = new (doc as any).GState({ opacity: 0.08 });
+                (doc as any).setGState(gState);
+            } catch (e) {
+                // Fallback for environments where GState isn't easily accessible
+                console.warn('GState not supported, watermark may be more opaque');
+            }
+
+            const wmSize = 120;
+            // Shifted slightly right to account for side strip
+            doc.addImage(logoBase64, 'PNG', (pageWidth - wmSize) / 2 + 2.5, (pageHeight - wmSize) / 2, wmSize, wmSize);
+
+            // Reset state for subsequent drawings
+            try {
+                // @ts-ignore
+                const resetState = new (doc as any).GState({ opacity: 1.0 });
+                (doc as any).setGState(resetState);
+            } catch (e) { }
         }
 
-        // Meal Name - Centered below logo
+        // 3. Header Section (Utilizing the space from removed logo)
+        // Meal Name - Primary Header
         doc.setTextColor(meal.color[0], meal.color[1], meal.color[2] as number);
-        doc.setFontSize(32);
+        doc.setFontSize(36);
         doc.setFont("helvetica", "bold");
-        doc.text(meal.name, pageWidth / 2, 65, { align: "center" });
+        doc.text(meal.name, pageWidth / 2 + 2.5, 35, { align: "center" });
 
-        // Event Context
+        // Event Context - Sub Header
         doc.setTextColor(80, 80, 80);
         doc.setFontSize(14);
         doc.setFont("helvetica", "normal");
         const eName = (participant.event_name || 'EVENT').toUpperCase();
-        doc.text(`INVITATION FOR ${eName}`, pageWidth / 2, 75, { align: "center" });
+        doc.text(`INVITATION FOR ${eName}`, pageWidth / 2 + 2.5, 45, { align: "center" });
 
         // --- Participant Details Card ---
         // Subtle divider
         doc.setDrawColor(230, 230, 230);
         doc.setLineWidth(0.5);
-        doc.line(40, 85, 170, 85);
+        doc.line(40, 60, 170, 60);
 
         doc.setTextColor(0, 0, 0);
-        doc.setFontSize(24);
+        doc.setFontSize(26);
         doc.setFont("helvetica", "bold");
-        doc.text(participant.name, pageWidth / 2, 100, { align: "center" });
+        doc.text(participant.name, pageWidth / 2 + 2.5, 75, { align: "center" });
 
         // Student Specifics
         doc.setFontSize(14);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(100, 100, 100);
 
-        let detailsY = 110;
+        let detailsY = 85;
         if (participant.rollNo) {
-            doc.text(`Roll No: ${participant.rollNo}`, pageWidth / 2, detailsY, { align: "center" });
+            doc.text(`Roll No: ${participant.rollNo}`, pageWidth / 2 + 2.5, detailsY, { align: "center" });
             detailsY += 8;
         }
 
         if (participant.roomNo) {
-            doc.text(`Room No: ${participant.roomNo}`, pageWidth / 2, detailsY, { align: "center" });
+            doc.text(`Room No: ${participant.roomNo}`, pageWidth / 2 + 2.5, detailsY, { align: "center" });
             detailsY += 8;
         }
 
@@ -137,7 +158,7 @@ export async function generateInvitationPDF(participant: Participant, options: P
             } else {
                 doc.setTextColor(211, 47, 47); // Red
             }
-            doc.text(pref, pageWidth / 2, detailsY + 5, { align: "center" });
+            doc.text(pref, pageWidth / 2 + 2.5, detailsY + 5, { align: "center" });
         }
 
 
@@ -165,22 +186,22 @@ export async function generateInvitationPDF(participant: Participant, options: P
         }
 
         // Center the QR Code
-        const qrSize = 75;
-        doc.addImage(qrDataUrl, 'PNG', (pageWidth - qrSize) / 2, 145, qrSize, qrSize);
+        const qrSize = 85;
+        doc.addImage(qrDataUrl, 'PNG', (pageWidth - qrSize) / 2 + 2.5, 130, qrSize, qrSize);
 
         doc.setFontSize(11);
         doc.setTextColor(150, 150, 150);
         doc.setFont("helvetica", "normal");
-        doc.text("Scan this QR Code at the counter for verification", pageWidth / 2, 230, { align: "center" });
+        doc.text("Scan this QR Code at the counter for verification", pageWidth / 2 + 2.5, 230, { align: "center" });
         doc.setTextColor(100, 100, 100);
         doc.setFont("helvetica", "bold");
-        doc.text(`TICKET ID: ${participant.ticket_id}`, pageWidth / 2, 238, { align: "center" });
+        doc.text(`TICKET ID: ${participant.ticket_id}`, pageWidth / 2 + 2.5, 238, { align: "center" });
 
         // --- Footer Credit ---
         doc.setFontSize(10);
         doc.setTextColor(150, 150, 150);
         doc.setFont("helvetica", "normal");
-        doc.text("Developed by BHARAT HARI S - AIML", pageWidth / 2, pageHeight - 15, { align: "center" });
+        doc.text("Developed by BHARAT HARI S - AIML", pageWidth / 2 + 2.5, pageHeight - 15, { align: "center" });
     }
 
     return Buffer.from(doc.output('arraybuffer'));
