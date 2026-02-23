@@ -15,6 +15,11 @@ export async function GET() {
             EMAIL_PASS_SET: pass ? 'YES (Length: ' + pass.length + ', Normalized: ' + (normalizedPass?.length || 0) + ')' : 'NO',
             EMAIL_HOST: host || 'gmail (default)',
         },
+        vercel: {
+            url: process.env.VERCEL_URL || 'unknown',
+            region: process.env.VERCEL_REGION || 'unknown',
+            sha: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'unknown',
+        },
         env: process.env.NODE_ENV,
         timestamp: new Date().toISOString()
     };
