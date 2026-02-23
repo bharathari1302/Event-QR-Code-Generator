@@ -30,6 +30,9 @@ export function Sidebar() {
         if (path === '/admin/events' && pathname.includes('/admin/manage/')) {
             return true;
         }
+        if (path === '/manager/events' && pathname.includes('/manager/manage/')) {
+            return true;
+        }
 
         if (path === '/admin' || path === '/manager' || path === '/warden' || path === '/coordinator') {
             return pathname === path;
@@ -46,6 +49,7 @@ export function Sidebar() {
         links.push({ name: 'Food Stats', href: '/warden/dashboard', icon: QrCode });
     } else if (role === 'manager') {
         links.push({ name: 'Dashboard', href: '/manager', icon: LayoutDashboard });
+        links.push({ name: 'My Events', href: '/manager/events', icon: CalendarDays });
         links.push({ name: 'Food Stats', href: '/warden/dashboard', icon: QrCode });
     } else if (role === 'coordinator') {
         links.push({ name: 'Scanner', href: '/coordinator', icon: QrCode });
