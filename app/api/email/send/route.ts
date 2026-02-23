@@ -86,11 +86,11 @@ export async function POST(req: NextRequest) {
                                 let htmlBody = '';
 
                                 if (singleMealName) {
-                                    subject = `${customMealName || 'Meal'} Invitation`;
-                                    htmlBody = `<p>Hello <strong>${p.name}</strong>,</p><p>You are invited for <strong>${customMealName}</strong>.</p><p>Please find your coupon attached.</p>`;
+                                    subject = `Q-Swift | ${customMealName || 'Meal'} Invitation`;
+                                    htmlBody = `<p>Hello <strong>${p.name}</strong>,</p><p>You are invited for <strong>${customMealName}</strong> via <strong>Q-Swift</strong>.</p><p>Please find your coupon attached.</p>`;
                                 } else {
-                                    subject = `Invitation: ${realEventName}`;
-                                    htmlBody = `<p>Hello <strong>${p.name}</strong>,</p><p>Here is your coupon sheet for <strong>${realEventName}</strong>.</p>`;
+                                    subject = `Q-Swift | Invitation: ${realEventName}`;
+                                    htmlBody = `<p>Hello <strong>${p.name}</strong>,</p><p>Here is your coupon sheet for <strong>${realEventName}</strong>.<br/>Generated via Q-Swift.</p>`;
                                 }
 
                                 const sent = await sendEmail({

@@ -57,7 +57,10 @@ export default function LoginPage() {
 
                 {/* Header Section */}
                 <div className="bg-slate-100 p-6 sm:p-8 text-center border-b border-gray-200">
-                    <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 mb-2 tracking-tight">Welcome Back</h1>
+                    <div className="flex justify-center mb-4">
+                        <img src="/logo.png" alt="Q-Swift Logo" className="h-16 w-auto object-contain" />
+                    </div>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 mb-2 tracking-tight">Q-Swift</h1>
                     <p className="text-slate-500 text-xs sm:text-sm">Sign in to manage or verify attendees</p>
                 </div>
 
@@ -169,7 +172,7 @@ export default function LoginPage() {
 
                 {/* Footer */}
                 <div className="bg-gray-50 p-4 text-center border-t border-gray-200">
-                    <p className="text-xs text-gray-400">© 2026 Event Management System</p>
+                    <p className="text-xs text-gray-400">© 2026 Q-Swift • developed by AIML</p>
                 </div>
 
             </div>

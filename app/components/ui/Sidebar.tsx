@@ -81,11 +81,11 @@ export function Sidebar() {
             )}>
                 {/* Logo Area */}
                 <div className="h-20 flex items-center gap-3 px-6 border-b border-border bg-slate-50/50">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-blue-900/10">
-                        <span className="text-xl">E</span>
+                    <div className="w-10 h-10 flex items-center justify-center">
+                        <img src="/logo.png" alt="Q-Swift" className="w-10 h-10 object-contain" />
                     </div>
                     <div className="flex flex-col">
-                        <h1 className="font-bold text-lg leading-tight text-foreground tracking-tight">EventSystem</h1>
+                        <h1 className="font-bold text-lg leading-tight text-foreground tracking-tight">Q-Swift</h1>
                         <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
                             {role === 'admin' ? 'Administration' : role?.toUpperCase()}
                         </span>

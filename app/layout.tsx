@@ -10,10 +10,13 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | Event QR System',
-    default: 'Event QR System',
+    template: '%s | Q-Swift',
+    default: 'Q-Swift | Event QR System',
   },
-  description: "Event QR Verification System",
+  description: "Q-Swift - Professional Event QR & Token Verification System",
+  icons: {
+    icon: '/logo.png',
+  }
 };
 
 import { AuthProvider } from "./context/AuthContext";
