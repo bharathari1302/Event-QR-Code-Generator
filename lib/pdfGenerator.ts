@@ -27,10 +27,10 @@ interface Participant {
     sub_event_name?: string;
     ticket_id: string;
     token: string;
-    foodPreference?: string; // New
-    roomNo?: string;         // New
-    rollNo?: string;         // New - Added to interface
-    eventId?: string;        // Event ID for verification
+    foodPreference?: string;
+    roomNo?: string;
+    rollNo?: string;
+    eventId?: string;
 }
 
 interface PDFOptions {
@@ -46,126 +46,216 @@ export async function generateInvitationPDF(participant: Participant, options: P
         format: 'a4', // 210 x 297 mm
     });
 
-    // --- CASE: Meal Coupons (Hostel Day / Special Dinner) ---
-    // Default to strict list if not specified
-    let meals = [
-        { name: 'BREAKFAST', color: [255, 152, 0] }, // Orange
-        { name: 'LUNCH', color: [255, 87, 34] },     // Deep Orange
-        { name: 'SNACKS', color: [156, 39, 176] },   // Purple
-        { name: 'DINNER', color: [63, 81, 181] },    // Indigo
-        { name: 'ICE CREAM', color: [233, 30, 99] }  // Pink
+    let meals: { name: string; color: [number, number, number]; accent: [number, number, number] }[] = [
+        { name: 'BREAKFAST', color: [255, 140, 0], accent: [255, 100, 0] },
+        { name: 'LUNCH', color: [220, 38, 38], accent: [185, 28, 28] },
+        { name: 'SNACKS', color: [124, 58, 237], accent: [109, 40, 217] },
+        { name: 'DINNER', color: [37, 99, 235], accent: [29, 78, 216] },
+        { name: 'ICE CREAM', color: [236, 72, 153], accent: [219, 39, 119] },
     ];
 
-    // Case: Custom Single Meal override
     if (options.singleMealName) {
-        // Try to find a matching color if the name matches standard meals
         const standardMeal = meals.find(m => m.name.toLowerCase() === options.singleMealName!.toLowerCase());
-        const color = standardMeal ? standardMeal.color : [63, 81, 181]; // Default to Indigo if custom
-
-        meals = [{ name: options.singleMealName.toUpperCase(), color: color }];
+        const color: [number, number, number] = standardMeal ? standardMeal.color : [37, 99, 235];
+        const accent: [number, number, number] = standardMeal ? standardMeal.accent : [29, 78, 216];
+        meals = [{ name: options.singleMealName.toUpperCase(), color, accent }];
     }
 
-    // Loop to create coupons (One per Page)
     for (let i = 0; i < meals.length; i++) {
         const meal = meals[i];
-
-        // Add new page for subsequent meals (if not first)
         if (i > 0) doc.addPage();
 
-        // --- Page Styling ---
-        const pageWidth = 210;
-        const pageHeight = 297;
-        const startY = 20;
+        const pw = 210;  // page width mm
+        const ph = 297;  // page height mm
+        const [r, g, b] = meal.color;
+        const [ar, ag, ab] = meal.accent;
 
-        // --- 1. Top Centered Logo ---
-        const logoBase64 = getLogoBase64();
-        if (logoBase64) {
-            const logoW = 50;
-            const logoH = 20; // approx 2.5:1
-            doc.addImage(logoBase64, 'PNG', (pageWidth - logoW) / 2, startY, logoW, logoH);
-        }
+        // ─────────────────────────────────────────
+        // 1. Full-width gradient-style header band
+        // ─────────────────────────────────────────
+        const headerH = 58;
 
-        // --- 2. Meal Header ---
-        doc.setTextColor(meal.color[0], meal.color[1], meal.color[2] as number);
-        doc.setFontSize(36);
-        doc.setFont("helvetica", "bold");
-        doc.text(meal.name, pageWidth / 2, startY + 40, { align: "center" });
+        // Main color fill
+        doc.setFillColor(r, g, b);
+        doc.rect(0, 0, pw, headerH, 'F');
 
-        doc.setTextColor(100, 100, 100);
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
+        // Darker accent strip at bottom of header (gives depth)
+        doc.setFillColor(ar, ag, ab);
+        doc.rect(0, headerH - 8, pw, 8, 'F');
+
+        // Left decorative circle (large, semi-transparent effect with lighter shade)
+        doc.setFillColor(
+            Math.min(r + 40, 255),
+            Math.min(g + 40, 255),
+            Math.min(b + 40, 255)
+        );
+        doc.circle(-18, 28, 38, 'F');
+
+        // Right decorative circle
+        doc.setFillColor(
+            Math.min(r + 20, 255),
+            Math.min(g + 20, 255),
+            Math.min(b + 20, 255)
+        );
+        doc.circle(pw + 12, 12, 28, 'F');
+
+        // Meal name in header
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(38);
+        doc.setFont('helvetica', 'bold');
+        doc.text(meal.name, pw / 2, 32, { align: 'center' });
+
+        // Event name sub-label in header
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(255, 255, 255);
         const eLabel = (participant.event_name || 'EVENT').toUpperCase();
-        doc.text(`INVITATION FOR ${eLabel}`, pageWidth / 2, startY + 48, { align: "center" });
+        doc.text(`INVITATION FOR ${eLabel}`, pw / 2, 45, { align: 'center' });
 
-        // Subtle Horizontal Divider
-        doc.setDrawColor(220, 220, 220);
-        doc.setLineWidth(0.2);
-        doc.line(40, startY + 58, pageWidth - 40, startY + 58);
-
-        // --- 3. Participant Details ---
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(28);
-        doc.setFont("helvetica", "bold");
-        doc.text(participant.name.toUpperCase(), pageWidth / 2, startY + 75, { align: "center" });
-
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(100, 100, 100);
-
-        let dY = startY + 85;
-        if (participant.rollNo) {
-            doc.text(`Roll No: ${participant.rollNo}`, pageWidth / 2, dY, { align: "center" });
-            dY += 8;
+        // ─────────────────────────────────────────
+        // 2. Logo — larger, centered below header
+        // ─────────────────────────────────────────
+        const logoBase64 = getLogoBase64();
+        const logoY = headerH + 8;
+        if (logoBase64) {
+            const logoW = 70;
+            const logoH = 28;
+            doc.addImage(logoBase64, 'PNG', (pw - logoW) / 2, logoY, logoW, logoH);
         }
 
-        if (participant.roomNo) {
-            doc.text(`Room No: ${participant.roomNo}`, pageWidth / 2, dY, { align: "center" });
-            dY += 8;
+        // ─────────────────────────────────────────
+        // 3. Thin color accent divider
+        // ─────────────────────────────────────────
+        const dividerY = logoY + 34;
+        doc.setDrawColor(r, g, b);
+        doc.setLineWidth(0.8);
+        doc.line(30, dividerY, pw - 30, dividerY);
+
+        // ─────────────────────────────────────────
+        // 4. Participant Info Card (light tinted box)
+        // ─────────────────────────────────────────
+        const cardY = dividerY + 6;
+        const cardH = 44;
+        const cardPad = 20;
+
+        // Card background — very light tint of meal color
+        doc.setFillColor(
+            Math.min(r + 210, 255),
+            Math.min(g + 210, 255),
+            Math.min(b + 210, 255)
+        );
+        doc.roundedRect(cardPad, cardY, pw - cardPad * 2, cardH, 4, 4, 'F');
+
+        // Left accent bar on card
+        doc.setFillColor(r, g, b);
+        doc.roundedRect(cardPad, cardY, 4, cardH, 2, 2, 'F');
+
+        // Participant Name
+        doc.setTextColor(20, 20, 20);
+        doc.setFontSize(24);
+        doc.setFont('helvetica', 'bold');
+        doc.text(participant.name.toUpperCase(), pw / 2, cardY + 15, { align: 'center' });
+
+        // Roll No & Room No
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(80, 80, 80);
+
+        let detailY = cardY + 25;
+        const details: string[] = [];
+        if (participant.rollNo) details.push(`Roll No: ${participant.rollNo}`);
+        if (participant.roomNo) details.push(`Room No: ${participant.roomNo}`);
+
+        if (details.length === 2) {
+            doc.text(details[0], pw / 2 - 2, detailY, { align: 'right' });
+            doc.setTextColor(180, 180, 180);
+            doc.text('  |  ', pw / 2, detailY, { align: 'center' });
+            doc.setTextColor(80, 80, 80);
+            doc.text(details[1], pw / 2 + 2, detailY, { align: 'left' });
+        } else if (details.length === 1) {
+            doc.text(details[0], pw / 2, detailY, { align: 'center' });
         }
 
-        // Food Preference
+        // Food Preference Badge
         if (!['SNACKS', 'ICE CREAM'].includes(meal.name.toUpperCase())) {
             const pref = participant.foodPreference?.toUpperCase() || 'VEG';
             const isVeg = pref.includes('VEG') && !pref.includes('NON');
-            doc.setFontSize(15);
-            doc.setFont("helvetica", "bold");
-            if (isVeg) {
-                doc.setTextColor(76, 175, 80); // Green
-            } else {
-                doc.setTextColor(211, 47, 47); // Red
-            }
-            doc.text(pref, pageWidth / 2, dY + 8, { align: "center" });
+            const prefColor: [number, number, number] = isVeg ? [21, 128, 61] : [185, 28, 28];
+            const prefBg: [number, number, number] = isVeg ? [220, 252, 231] : [254, 226, 226];
+
+            // Badge background
+            const badgeW = 32;
+            const badgeH = 8;
+            const badgeX = (pw - badgeW) / 2;
+            const badgeY = cardY + cardH - 13;
+
+            doc.setFillColor(...prefBg);
+            doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 3, 3, 'F');
+            doc.setTextColor(...prefColor);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.text(pref, pw / 2, badgeY + 5.5, { align: 'center' });
         }
 
-        // --- 4. Large Centered QR Code ---
-        let qPayload = `${participant.ticket_id}|${meal.name.toLowerCase()}`;
-        let qUrl;
+        // ─────────────────────────────────────────
+        // 5. Large QR Code — centered
+        // ─────────────────────────────────────────
+        const qrY = cardY + cardH + 10;
+        const qrSize = 90;
+
+        let qUrl: string;
+        const qPayload = `${participant.ticket_id}|${meal.name.toLowerCase()}`;
         try {
-            qUrl = await QRCode.toDataURL(qPayload, { width: 400, margin: 1, errorCorrectionLevel: 'H' });
-        } catch (error) {
-            qUrl = await QRCode.toDataURL(`${participant.token}|${meal.name.toLowerCase()}`, { width: 400 });
+            qUrl = await QRCode.toDataURL(qPayload, { width: 500, margin: 1, errorCorrectionLevel: 'H' });
+        } catch {
+            qUrl = await QRCode.toDataURL(qPayload, { width: 500 });
         }
 
-        const qSSize = 85;
-        doc.addImage(qUrl, 'PNG', (pageWidth - qSSize) / 2, startY + 120, qSSize, qSSize);
+        // QR white card shadow/bg
+        doc.setFillColor(248, 248, 248);
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.3);
+        doc.roundedRect((pw - qrSize - 8) / 2, qrY - 4, qrSize + 8, qrSize + 8, 4, 4, 'FD');
 
-        // Verification Instructions
-        doc.setFontSize(11);
-        doc.setTextColor(150, 150, 150);
-        doc.setFont("helvetica", "normal");
-        doc.text("Scan this QR Code at the counter for verification", pageWidth / 2, startY + 215, { align: "center" });
+        doc.addImage(qUrl, 'PNG', (pw - qrSize) / 2, qrY, qrSize, qrSize);
 
-        // Ticket ID
-        doc.setTextColor(100, 100, 100);
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text(`TICKET ID: ${participant.ticket_id}`, pageWidth / 2, startY + 223, { align: "center" });
+        // ─────────────────────────────────────────
+        // 6. Scan instruction & Ticket ID badge
+        // ─────────────────────────────────────────
+        const afterQR = qrY + qrSize + 12;
 
-        // --- 5. Clean Footer ---
         doc.setFontSize(10);
-        doc.setTextColor(150, 150, 150);
-        doc.setFont("helvetica", "normal");
-        doc.text("Developed by BHARAT HARI S - AIML", pageWidth / 2, pageHeight - 15, { align: "center" });
+        doc.setTextColor(140, 140, 140);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Scan this QR Code at the counter for verification', pw / 2, afterQR, { align: 'center' });
+
+        // Ticket ID pill badge
+        const ticketLabel = `TICKET ID: ${participant.ticket_id}`;
+        const ticketBadgeW = 90;
+        const ticketBadgeH = 9;
+        const ticketBadgeX = (pw - ticketBadgeW) / 2;
+        const ticketBadgeY = afterQR + 5;
+
+        doc.setFillColor(r, g, b);
+        doc.roundedRect(ticketBadgeX, ticketBadgeY, ticketBadgeW, ticketBadgeH, 4, 4, 'F');
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text(ticketLabel, pw / 2, ticketBadgeY + 6, { align: 'center' });
+
+        // ─────────────────────────────────────────
+        // 7. Footer
+        // ─────────────────────────────────────────
+        // Thin top line above footer
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.2);
+        doc.line(30, ph - 22, pw - 30, ph - 22);
+
+        doc.setFontSize(9);
+        doc.setTextColor(160, 160, 160);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Developed by BHARAT HARI S - AIML', pw / 2, ph - 14, { align: 'center' });
     }
 
     return Buffer.from(doc.output('arraybuffer'));
