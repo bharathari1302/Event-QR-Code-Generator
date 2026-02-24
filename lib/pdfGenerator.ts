@@ -71,53 +71,50 @@ export async function generateInvitationPDF(participant: Participant, options: P
         const [dr, dg, db] = meal.dark;
 
         // ══════════════════════════════════════════
-        // 1. HEADER BAND — full-width, 68mm tall
+        // 1. HEADER BAND — full-width, 65mm tall
         // ══════════════════════════════════════════
-        const hH = 68; // header height
+        const hH = 65; // header height
 
-        // Main band
+        // Main band (full height, bright color)
         doc.setFillColor(r, g, b);
         doc.rect(0, 0, pw, hH, 'F');
 
-        // Darker bottom strip (depth)
+        // Thin dark bottom strip — just 4mm for depth, does NOT interfere with text
         doc.setFillColor(dr, dg, db);
-        doc.rect(0, hH - 10, pw, 10, 'F');
+        doc.rect(0, hH - 4, pw, 4, 'F');
 
-        // Decorative circle — top left (lighten)
+        // Decorative circle — top left (lighter shade)
         doc.setFillColor(Math.min(r + 50, 255), Math.min(g + 50, 255), Math.min(b + 50, 255));
         doc.circle(-20, -5, 48, 'F');
 
-        // Decorative circle — bottom right (lighten)
+        // Decorative circle — right (lighter shade)
         doc.setFillColor(Math.min(r + 30, 255), Math.min(g + 30, 255), Math.min(b + 30, 255));
-        doc.circle(pw + 15, hH + 5, 35, 'F');
+        doc.circle(pw + 15, hH - 5, 35, 'F');
 
-        // Small accent dots (light fill — no opacity API needed)
-        doc.setFillColor(
-            Math.min(r + 60, 255),
-            Math.min(g + 60, 255),
-            Math.min(b + 60, 255)
-        );
-        doc.circle(160, 14, 20, 'F');
-        doc.circle(184, 58, 12, 'F');
+        // Small accent dot top-right
+        doc.setFillColor(Math.min(r + 60, 255), Math.min(g + 60, 255), Math.min(b + 60, 255));
+        doc.circle(168, 12, 18, 'F');
 
-        // Meal name (big, bold, white)
+        // ── All text sits in the bright zone (well above the 4mm dark strip) ──
+
+        // Meal name — large, bold, white
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(42);
+        doc.setFontSize(44);
         doc.setFont('helvetica', 'bold');
-        doc.text(meal.name, pw / 2, 36, { align: 'center' });
+        doc.text(meal.name, pw / 2, 32, { align: 'center' });
 
-        // Subtitle
+        // Subtitle — smaller, slightly off-white, still on bright orange
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.setTextColor(240, 240, 240);
-        doc.text('— MEAL ACCESS PASS —', pw / 2, 47, { align: 'center' });
+        doc.setTextColor(255, 255, 255);
+        doc.text('\u2014  MEAL ACCESS PASS  \u2014', pw / 2, 43, { align: 'center' });
 
-        // Event name
+        // Event name — small, white, clearly above dark strip
         const eLabel = (participant.event_name || 'EVENT').toUpperCase();
-        doc.setFontSize(9.5);
+        doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.setTextColor(230, 230, 230);
-        doc.text(`INVITATION FOR ${eLabel}`, pw / 2, 57, { align: 'center' });
+        doc.setTextColor(255, 255, 255);
+        doc.text(`INVITATION FOR ${eLabel}`, pw / 2, 53, { align: 'center' });
 
         // ══════════════════════════════════════════
         // 2. LOGO — centered below header, larger
@@ -137,62 +134,70 @@ export async function generateInvitationPDF(participant: Participant, options: P
         doc.line(50, accentY, pw - 50, accentY);
 
         // ══════════════════════════════════════════
-        // 3. PARTICIPANT INFO CARD
+        // 3. PARTICIPANT INFO CARD — clean redesign
         // ══════════════════════════════════════════
         const cardX = 18;
         const cardY = accentY + 7;
         const cardW = pw - cardX * 2;
-        const cardH = 50;
+        const cardH = 48;
+        const accentBarW = 5;
 
-        // Card background — very light tint
-        doc.setFillColor(
-            Math.min(r + 215, 255),
-            Math.min(g + 215, 255),
-            Math.min(b + 215, 255)
-        );
+        // White card base with light colored border
+        doc.setFillColor(255, 255, 255);
         doc.setDrawColor(
-            Math.min(r + 160, 255),
-            Math.min(g + 160, 255),
-            Math.min(b + 160, 255)
+            Math.min(r + 130, 255),
+            Math.min(g + 130, 255),
+            Math.min(b + 130, 255)
         );
-        doc.setLineWidth(0.4);
-        doc.roundedRect(cardX, cardY, cardW, cardH, 5, 5, 'FD');
+        doc.setLineWidth(0.5);
+        doc.roundedRect(cardX, cardY, cardW, cardH, 4, 4, 'FD');
 
-        // Dark header strip inside card
+        // Thick left accent bar
         doc.setFillColor(r, g, b);
-        doc.roundedRect(cardX, cardY, cardW, 13, 5, 5, 'F');
-        doc.setFillColor(r, g, b);
-        doc.rect(cardX, cardY + 7, cardW, 6, 'F'); // fill the rounded bottom of top strip
+        doc.roundedRect(cardX, cardY, accentBarW, cardH, 2, 2, 'F');
+        // Fill right side of bar to make it flush
+        doc.rect(cardX + 2, cardY, accentBarW - 2, cardH, 'F');
 
-        // "PARTICIPANT" label inside dark strip
-        doc.setTextColor(255, 255, 255);
+        // Small colored label above the name ("HOSTEL ACCESS")
+        doc.setTextColor(r, g, b);
         doc.setFontSize(7.5);
         doc.setFont('helvetica', 'bold');
-        doc.text('PARTICIPANT', pw / 2, cardY + 9, { align: 'center' });
+        doc.text('HOSTEL ACCESS', pw / 2, cardY + 10, { align: 'center' });
 
-        // Participant Name
-        doc.setTextColor(20, 20, 20);
-        doc.setFontSize(22);
+        // Thin rule below label
+        doc.setDrawColor(
+            Math.min(r + 150, 255),
+            Math.min(g + 150, 255),
+            Math.min(b + 150, 255)
+        );
+        doc.setLineWidth(0.3);
+        doc.line(cardX + accentBarW + 6, cardY + 13, cardX + cardW - 6, cardY + 13);
+
+        // Participant Name — large, dark
+        doc.setTextColor(15, 15, 15);
+        doc.setFontSize(23);
         doc.setFont('helvetica', 'bold');
-        doc.text(participant.name.toUpperCase(), pw / 2, cardY + 24, { align: 'center' });
+        doc.text(participant.name.toUpperCase(), pw / 2, cardY + 25, { align: 'center' });
 
-        // Roll No | Room No
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(70, 70, 70);
-
+        // Roll No | Room No — neatly spaced
         const details: string[] = [];
         if (participant.rollNo) details.push(`Roll No: ${participant.rollNo}`);
         if (participant.roomNo) details.push(`Room No: ${participant.roomNo}`);
 
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+
         if (details.length === 2) {
-            doc.text(details[0], pw / 2 - 2, cardY + 33, { align: 'right' });
-            doc.setTextColor(180, 180, 180);
-            doc.text('  |  ', pw / 2, cardY + 33, { align: 'center' });
-            doc.setTextColor(70, 70, 70);
-            doc.text(details[1], pw / 2 + 2, cardY + 33, { align: 'left' });
+            const mid = pw / 2;
+            doc.setTextColor(80, 80, 80);
+            doc.text(details[0], mid - 3, cardY + 34, { align: 'right' });
+            doc.setFillColor(180, 180, 180);
+            doc.rect(mid - 0.5, cardY + 29, 1, 4, 'F');
+            doc.setTextColor(80, 80, 80);
+            doc.text(details[1], mid + 3, cardY + 34, { align: 'left' });
         } else if (details.length === 1) {
-            doc.text(details[0], pw / 2, cardY + 33, { align: 'center' });
+            doc.setTextColor(80, 80, 80);
+            doc.text(details[0], pw / 2, cardY + 34, { align: 'center' });
         }
 
         // Food Preference badge
@@ -203,9 +208,9 @@ export async function generateInvitationPDF(participant: Participant, options: P
             const prefBorder: [number, number, number] = isVeg ? [134, 239, 172] : [252, 165, 165];
             const prefText: [number, number, number] = isVeg ? [21, 128, 61] : [185, 28, 28];
 
-            const bW = 28, bH = 7;
+            const bW = 30, bH = 7;
             const bX = (pw - bW) / 2;
-            const bY = cardY + cardH - 11;
+            const bY = cardY + cardH - 10;
 
             doc.setFillColor(...prefFill);
             doc.setDrawColor(...prefBorder);
