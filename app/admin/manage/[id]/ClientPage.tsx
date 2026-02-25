@@ -387,72 +387,92 @@ export default function ManageEventPage() {
         let isFirstBatch = true;
 
         while (hasMore) {
-            try {
-                const res = await fetch('/api/email/send', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        eventId,
-                        pdfPurpose: 'hostel',
-                        hostelSubType: subType,
-                        customMealName: mealName
-                    })
-                });
+            let retryCount = 0;
+            const MAX_RETRIES = 3;
+            let successInThisBatch = false;
 
-                if (!res.ok) throw new Error(`Server returned ${res.status}`);
-                if (!res.body) throw new Error('No response body from email service');
+            while (retryCount < MAX_RETRIES && !successInThisBatch) {
+                try {
+                    const res = await fetch('/api/email/send', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            eventId,
+                            pdfPurpose: 'hostel',
+                            hostelSubType: subType,
+                            customMealName: mealName
+                        })
+                    });
 
-                const reader = res.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-                let batchHasMore = false;
+                    if (!res.ok) {
+                        const errorData = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
+                        throw new Error(errorData.error || `Server returned ${res.status}`);
+                    }
 
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
+                    if (!res.body) throw new Error('No response body from email service');
 
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop() || '';
+                    const reader = res.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+                    let batchHasMore = false;
 
-                    for (const line of lines) {
-                        if (!line.trim()) continue;
+                    while (true) {
                         try {
-                            const update = JSON.parse(line);
-                            if (update.status === 'started' || update.status === 'progress') {
-                                // Use absoluteTotal for the REAL progress bar max
-                                const currentTotal = update.absoluteTotal || update.total || 0;
-                                const batchProcessed = update.processed || 0;
-                                const batchSuccess = update.success || 0;
-                                const batchFailed = update.failed || 0;
+                            const { done, value } = await reader.read();
+                            if (done) break;
 
-                                setEmailProgress({
-                                    total: currentTotal,
-                                    processed: cumulativeSuccess + cumulativeFailed + batchProcessed,
-                                    success: cumulativeSuccess + batchSuccess,
-                                    failed: cumulativeFailed + batchFailed
-                                });
-                            } else if (update.status === 'completed') {
-                                cumulativeSuccess += update.success || 0;
-                                cumulativeFailed += update.failed || 0;
-                                batchHasMore = update.hasMore;
-                            } else if (update.status === 'error') {
-                                setEmailErrors(prev => [...prev, update.error]);
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split('\n');
+                            buffer = lines.pop() || '';
+
+                            for (const line of lines) {
+                                if (!line.trim()) continue;
+                                try {
+                                    const update = JSON.parse(line);
+                                    if (update.status === 'started' || update.status === 'progress') {
+                                        const currentTotal = update.absoluteTotal || update.total || 0;
+                                        const batchProcessed = update.processed || 0;
+                                        const batchSuccess = update.success || 0;
+                                        const batchFailed = update.failed || 0;
+
+                                        setEmailProgress({
+                                            total: currentTotal,
+                                            processed: cumulativeSuccess + cumulativeFailed + batchProcessed,
+                                            success: cumulativeSuccess + batchSuccess,
+                                            failed: cumulativeFailed + batchFailed
+                                        });
+                                    } else if (update.status === 'completed') {
+                                        cumulativeSuccess += update.success || 0;
+                                        cumulativeFailed += update.failed || 0;
+                                        batchHasMore = update.hasMore;
+                                        successInThisBatch = true; // We finished the stream!
+                                    } else if (update.status === 'error') {
+                                        setEmailErrors(prev => [...prev, update.error]);
+                                    }
+                                } catch (e) { console.error('JSON Parse Error', e); }
                             }
-                        } catch (e) { console.error('JSON Parse Error', e); }
+                        } catch (readErr: any) {
+                            console.error('Stream read error:', readErr);
+                            throw new Error(`Stream interrupted: ${readErr.message}`);
+                        }
+                    }
+
+                    hasMore = batchHasMore;
+                    isFirstBatch = false;
+
+                } catch (err: any) {
+                    retryCount++;
+                    console.error(`Email batch attempt ${retryCount} failed:`, err);
+
+                    if (retryCount < MAX_RETRIES) {
+                        setStatus({ type: 'error', msg: `Connection lag... Retrying attempt ${retryCount + 1}/3` });
+                        // Wait 2 seconds before retry
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    } else {
+                        setEmailErrors(prev => [...prev, `Batch sequence stopped after ${MAX_RETRIES} attempts: ${err.message}`]);
+                        hasMore = false;
                     }
                 }
-
-                hasMore = batchHasMore;
-                isFirstBatch = false;
-
-                // Stop loop if we had a total failure or something went wrong?
-                // For now, keep going until hasMore is false.
-
-            } catch (err: any) {
-                console.error('Email batch failed:', err);
-                setEmailErrors(prev => [...prev, `Batch failed: ${err.message}`]);
-                hasMore = false; // Stop on network error
             }
         }
 
