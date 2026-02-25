@@ -420,31 +420,17 @@ export default function ManageEventPage() {
                         try {
                             const update = JSON.parse(line);
                             if (update.status === 'started' || update.status === 'progress') {
-                                // For the very first batch, we might not know the REAL total yet if it's based on query limit
-                                // But here update.total is the TOTAL 'generated' found in THAT query batch
+                                // Use absoluteTotal for the REAL progress bar max
+                                const currentTotal = update.absoluteTotal || update.total || 0;
                                 const batchProcessed = update.processed || 0;
                                 const batchSuccess = update.success || 0;
                                 const batchFailed = update.failed || 0;
 
-                                setEmailProgress(prev => {
-                                    if (!prev || isFirstBatch) {
-                                        // If it's the first batch, we trust the 'total' reported (which is now 1000 or the batch size)
-                                        // Actually the backend 'totalDocs' is just for THAT batch.
-                                        // We want to show progress relative to what we know.
-                                        // Let's just use the numbers as they come.
-                                        return {
-                                            total: update.total || 0, // This is a bit tricky if we don't know the absolute total
-                                            processed: cumulativeSuccess + cumulativeFailed + batchProcessed,
-                                            success: cumulativeSuccess + batchSuccess,
-                                            failed: cumulativeFailed + batchFailed
-                                        };
-                                    }
-                                    return {
-                                        ...prev,
-                                        processed: cumulativeSuccess + cumulativeFailed + batchProcessed,
-                                        success: cumulativeSuccess + batchSuccess,
-                                        failed: cumulativeFailed + batchFailed
-                                    };
+                                setEmailProgress({
+                                    total: currentTotal,
+                                    processed: cumulativeSuccess + cumulativeFailed + batchProcessed,
+                                    success: cumulativeSuccess + batchSuccess,
+                                    failed: cumulativeFailed + batchFailed
                                 });
                             } else if (update.status === 'completed') {
                                 cumulativeSuccess += update.success || 0;

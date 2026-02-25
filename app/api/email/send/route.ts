@@ -28,22 +28,30 @@ export async function POST(req: NextRequest) {
     const stream = new ReadableStream({
         async start(controller) {
             try {
-                // 1. Query participants for THIS event - BATCHED
+                // 1. Query participants for THIS event - BATCHED for stability on Hobby Tier
                 const participantsRef = adminDb.collection('participants');
-
-                // Get one extra to check if there are more
-                const BATCH_LIMIT = 50;
-                const snapshot = await participantsRef
+                const baseQuery = participantsRef
                     .where('event_id', '==', eventId)
-                    .where('status', '==', 'generated')
-                    .limit(BATCH_LIMIT + 1)
-                    .get();
+                    .where('status', '==', 'generated');
 
-                console.log(`[EMAIL] Query result for ${eventId}: ${snapshot.size} participants found with status='generated'`);
+                // Get absolute current pending count for the progress bar
+                const totalSnapshot = await baseQuery.count().get();
+                const absoluteTotalPending = totalSnapshot.data().count;
+
+                // Process a small batch to stay under the 10s Hobby limit
+                const BATCH_LIMIT = 7;
+                const snapshot = await baseQuery.limit(BATCH_LIMIT + 1).get();
+
+                console.log(`[EMAIL] Query result for ${eventId}: ${snapshot.size}/${absoluteTotalPending} pending found.`);
 
                 if (snapshot.empty) {
                     console.log(`[EMAIL] No pending participants for ${eventId}`);
-                    controller.enqueue(encoder.encode(JSON.stringify({ message: 'No pending invitations found.', done: true, hasMore: false }) + '\n'));
+                    controller.enqueue(encoder.encode(JSON.stringify({
+                        message: 'No pending invitations found.',
+                        done: true,
+                        hasMore: false,
+                        absoluteTotal: 0
+                    }) + '\n'));
                     controller.close();
                     return;
                 }
@@ -51,7 +59,7 @@ export async function POST(req: NextRequest) {
                 // Check for more
                 const hasMore = snapshot.size > BATCH_LIMIT;
                 const docs = snapshot.docs.slice(0, BATCH_LIMIT);
-                const totalDocs = docs.length;
+                const batchTotal = docs.length;
 
                 // Fetch Event Details for PDF
                 const eventDoc = await adminDb.collection('events').doc(eventId).get();
@@ -72,10 +80,11 @@ export async function POST(req: NextRequest) {
                 const CHUNK_SIZE = 5; // Smaller chunks within the 50-batch for stability
 
                 // Notify start
-                console.log(`[EMAIL] Starting stream with total: ${totalDocs} for event: ${realEventName} (${eventId})`);
+                console.log(`[EMAIL] Starting batch session: batchSize: ${batchTotal}, absoluteTotal: ${absoluteTotalPending}`);
                 controller.enqueue(encoder.encode(JSON.stringify({
                     status: 'started',
-                    total: totalDocs,
+                    total: batchTotal,
+                    absoluteTotal: absoluteTotalPending,
                     processed: 0,
                     debug: { eventId, eventName: realEventName }
                 }) + '\n'));
@@ -153,7 +162,8 @@ export async function POST(req: NextRequest) {
                     // Send progress update
                     const progressData = JSON.stringify({
                         status: 'progress',
-                        total: totalDocs,
+                        total: batchTotal,
+                        absoluteTotal: absoluteTotalPending,
                         processed: processedCount,
                         success: successCount,
                         failed: failCount
@@ -168,7 +178,8 @@ export async function POST(req: NextRequest) {
                     status: 'completed',
                     message: `Sent ${successCount} emails. Failed: ${failCount}`,
                     done: true,
-                    hasMore: hasMore // TELL FRONTEND TO LOOP
+                    hasMore: hasMore, // TELL FRONTEND TO LOOP
+                    absoluteTotal: absoluteTotalPending // Should ideally be absoluteTotalPending - successCount
                 }) + '\n'));
 
                 controller.close();
