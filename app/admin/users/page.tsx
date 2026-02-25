@@ -222,21 +222,17 @@ export default function ManageUsersPage() {
             {editTarget && <EditManagerModal user={editTarget} onClose={() => setEditTarget(null)} onSaved={fetchUsers} />}
             {deleteTarget && <DeleteConfirmDialog user={deleteTarget} onClose={() => setDeleteTarget(null)} onDeleted={fetchUsers} />}
 
-            {/* Page header */}
-            <div className="bg-white border-b border-gray-200 px-8 py-5">
-                <div className="max-w-6xl mx-auto flex items-center gap-4">
+            <div className="max-w-6xl mx-auto px-8 py-8">
+                {/* Inline page title */}
+                <div className="flex items-center gap-3 mb-8">
                     <Link href="/admin" className="p-2 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg transition shadow-sm">
-                        <FaArrowLeft className="text-gray-500" size={14} />
+                        <FaArrowLeft className="text-gray-500" size={13} />
                     </Link>
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">Manage Users</h1>
-                        <p className="text-sm text-gray-500 mt-0.5">Create and manage system accounts</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Create and manage system accounts</p>
                     </div>
                 </div>
-            </div>
-
-            {/* Body */}
-            <div className="max-w-6xl mx-auto px-8 py-8">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
 
                     {/* ── Left: Create Form ── */}
