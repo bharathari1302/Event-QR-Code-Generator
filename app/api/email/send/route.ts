@@ -28,29 +28,36 @@ export async function POST(req: NextRequest) {
     const stream = new ReadableStream({
         async start(controller) {
             try {
-                // 1. Query participants for THIS event
+                // 1. Query participants for THIS event - BATCHED
                 const participantsRef = adminDb.collection('participants');
+
+                // Get one extra to check if there are more
+                const BATCH_LIMIT = 50;
                 const snapshot = await participantsRef
                     .where('event_id', '==', eventId)
                     .where('status', '==', 'generated')
-                    .limit(1000)
+                    .limit(BATCH_LIMIT + 1)
                     .get();
 
                 console.log(`[EMAIL] Query result for ${eventId}: ${snapshot.size} participants found with status='generated'`);
 
                 if (snapshot.empty) {
                     console.log(`[EMAIL] No pending participants for ${eventId}`);
-                    controller.enqueue(encoder.encode(JSON.stringify({ message: 'No pending invitations found.', done: true }) + '\n'));
+                    controller.enqueue(encoder.encode(JSON.stringify({ message: 'No pending invitations found.', done: true, hasMore: false }) + '\n'));
                     controller.close();
                     return;
                 }
+
+                // Check for more
+                const hasMore = snapshot.size > BATCH_LIMIT;
+                const docs = snapshot.docs.slice(0, BATCH_LIMIT);
+                const totalDocs = docs.length;
 
                 // Fetch Event Details for PDF
                 const eventDoc = await adminDb.collection('events').doc(eventId).get();
                 const eventData = eventDoc.data() || {};
                 const realEventName = eventData.name || 'Event';
 
-                const totalDocs = snapshot.size;
                 let processedCount = 0;
                 let successCount = 0;
                 let failCount = 0;
@@ -62,8 +69,7 @@ export async function POST(req: NextRequest) {
                 if (hostelSubType === 'other' && customMealName) singleMealName = customMealName;
 
                 const batch = adminDb.batch();
-                const docs = snapshot.docs;
-                const CHUNK_SIZE = 10;
+                const CHUNK_SIZE = 5; // Smaller chunks within the 50-batch for stability
 
                 // Notify start
                 console.log(`[EMAIL] Starting stream with total: ${totalDocs} for event: ${realEventName} (${eventId})`);
@@ -161,7 +167,8 @@ export async function POST(req: NextRequest) {
                 controller.enqueue(encoder.encode(JSON.stringify({
                     status: 'completed',
                     message: `Sent ${successCount} emails. Failed: ${failCount}`,
-                    done: true
+                    done: true,
+                    hasMore: hasMore // TELL FRONTEND TO LOOP
                 }) + '\n'));
 
                 controller.close();

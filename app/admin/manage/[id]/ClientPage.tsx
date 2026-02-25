@@ -379,6 +379,100 @@ export default function ManageEventPage() {
         }
     };
 
+    // --- EMAIL BATCH SEQUENCE ---
+    const runEmailBatchSequence = async (subType: string, mealName: string) => {
+        let hasMore = true;
+        let cumulativeSuccess = 0;
+        let cumulativeFailed = 0;
+        let isFirstBatch = true;
+
+        while (hasMore) {
+            try {
+                const res = await fetch('/api/email/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        eventId,
+                        pdfPurpose: 'hostel',
+                        hostelSubType: subType,
+                        customMealName: mealName
+                    })
+                });
+
+                if (!res.ok) throw new Error(`Server returned ${res.status}`);
+                if (!res.body) throw new Error('No response body from email service');
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let batchHasMore = false;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        try {
+                            const update = JSON.parse(line);
+                            if (update.status === 'started' || update.status === 'progress') {
+                                // For the very first batch, we might not know the REAL total yet if it's based on query limit
+                                // But here update.total is the TOTAL 'generated' found in THAT query batch
+                                const batchProcessed = update.processed || 0;
+                                const batchSuccess = update.success || 0;
+                                const batchFailed = update.failed || 0;
+
+                                setEmailProgress(prev => {
+                                    if (!prev || isFirstBatch) {
+                                        // If it's the first batch, we trust the 'total' reported (which is now 1000 or the batch size)
+                                        // Actually the backend 'totalDocs' is just for THAT batch.
+                                        // We want to show progress relative to what we know.
+                                        // Let's just use the numbers as they come.
+                                        return {
+                                            total: update.total || 0, // This is a bit tricky if we don't know the absolute total
+                                            processed: cumulativeSuccess + cumulativeFailed + batchProcessed,
+                                            success: cumulativeSuccess + batchSuccess,
+                                            failed: cumulativeFailed + batchFailed
+                                        };
+                                    }
+                                    return {
+                                        ...prev,
+                                        processed: cumulativeSuccess + cumulativeFailed + batchProcessed,
+                                        success: cumulativeSuccess + batchSuccess,
+                                        failed: cumulativeFailed + batchFailed
+                                    };
+                                });
+                            } else if (update.status === 'completed') {
+                                cumulativeSuccess += update.success || 0;
+                                cumulativeFailed += update.failed || 0;
+                                batchHasMore = update.hasMore;
+                            } else if (update.status === 'error') {
+                                setEmailErrors(prev => [...prev, update.error]);
+                            }
+                        } catch (e) { console.error('JSON Parse Error', e); }
+                    }
+                }
+
+                hasMore = batchHasMore;
+                isFirstBatch = false;
+
+                // Stop loop if we had a total failure or something went wrong?
+                // For now, keep going until hasMore is false.
+
+            } catch (err: any) {
+                console.error('Email batch failed:', err);
+                setEmailErrors(prev => [...prev, `Batch failed: ${err.message}`]);
+                hasMore = false; // Stop on network error
+            }
+        }
+
+        return { success: cumulativeSuccess, failed: cumulativeFailed };
+    };
+
     const handleSheetSync = async () => {
         if (!sheetId) {
             setStatus({ type: 'error', msg: 'Please enter a Google Sheet ID.' });
@@ -429,74 +523,17 @@ export default function ManageEventPage() {
                 // 2. Auto-Send Emails if enabled and participants added
                 if (autoSendEmails && count > 0) {
                     setStatus({ type: 'success', msg: `${successMsg} Sending emails...` });
-                    setEmailProgress({ total: count, processed: 0, success: 0, failed: 0 }); // Init
+                    setEmailProgress({ total: count, processed: 0, success: 0, failed: 0 }); // Initial estimate
 
-                    let finalEmailSuccess = 0;
-                    let finalEmailFailed = 0;
-
-                    try {
-                        const emailRes = await fetch('/api/email/send', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                eventId,
-                                pdfPurpose: 'hostel',
-                                hostelSubType: syncSubType,
-                                customMealName: syncMealName
-                            })
-                        });
-
-                        if (!emailRes.body) throw new Error('No response body from email service');
-
-                        const reader = emailRes.body.getReader();
-                        const decoder = new TextDecoder();
-                        let buffer = '';
-
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-
-                            buffer += decoder.decode(value, { stream: true });
-                            const lines = buffer.split('\n');
-                            buffer = lines.pop() || '';
-
-                            for (const line of lines) {
-                                if (!line.trim()) continue;
-                                try {
-                                    const update = JSON.parse(line);
-                                    if (update.status === 'started' || update.status === 'progress') {
-                                        setEmailProgress({
-                                            total: update.total || 0,
-                                            processed: update.processed || 0,
-                                            success: update.success || 0,
-                                            failed: update.failed || 0
-                                        });
-                                        finalEmailSuccess = update.success || 0;
-                                        finalEmailFailed = update.failed || 0;
-                                    } else if (update.status === 'completed') {
-                                        finalEmailSuccess = update.success || finalEmailSuccess;
-                                        finalEmailFailed = update.failed || finalEmailFailed;
-                                    } else if (update.status === 'error') {
-                                        setEmailErrors(prev => [...prev, update.error]);
-                                    }
-                                } catch (e) {
-                                    console.error('JSON Parse Error', e);
-                                }
-                            }
-                        }
-
-                        successMsg += ` ✉ Sent: ${finalEmailSuccess}, Failed: ${finalEmailFailed}.`;
-                    } catch (emailErr: any) {
-                        console.error('Auto-send email failed', emailErr);
-                        successMsg += ' But email sending failed.';
-                    }
+                    const { success, failed } = await runEmailBatchSequence(syncSubType, syncMealName);
+                    successMsg += ` ✉ Sent: ${success}, Failed: ${failed}.`;
 
                     // Keep final email progress visible
                     setEmailProgress({
-                        total: finalEmailSuccess + finalEmailFailed,
-                        processed: finalEmailSuccess + finalEmailFailed,
-                        success: finalEmailSuccess,
-                        failed: finalEmailFailed
+                        total: success + failed,
+                        processed: success + failed,
+                        success: success,
+                        failed: failed
                     });
                 }
 
@@ -1062,61 +1099,22 @@ export default function ManageEventPage() {
                                     setEmailProgress(null);
                                     setEmailErrors([]);
 
-                                    try {
-                                        const res = await fetch('/api/email/send', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({
-                                                pdfPurpose: 'hostel',
-                                                hostelSubType,
-                                                customMealName,
-                                                eventId
-                                            })
-                                        });
+                                    const { success, failed } = await runEmailBatchSequence(hostelSubType, customMealName);
 
-                                        if (!res.body) throw new Error('No response body');
-
-                                        const reader = res.body.getReader();
-                                        const decoder = new TextDecoder();
-                                        let buffer = '';
-
-                                        while (true) {
-                                            const { done, value } = await reader.read();
-                                            if (done) break;
-
-                                            buffer += decoder.decode(value, { stream: true });
-                                            const lines = buffer.split('\n');
-                                            buffer = lines.pop() || ''; // Keep partial line
-
-                                            for (const line of lines) {
-                                                if (!line.trim()) continue;
-                                                try {
-                                                    const update = JSON.parse(line);
-
-                                                    if (update.status === 'started' || update.status === 'progress') {
-                                                        setEmailProgress({
-                                                            total: update.total || 0,
-                                                            processed: update.processed || 0,
-                                                            success: update.success || 0,
-                                                            failed: update.failed || 0
-                                                        });
-                                                    } else if (update.status === 'completed') {
-                                                        setStatus({ type: 'success', msg: update.message });
-                                                    } else if (update.status === 'error') {
-                                                        setEmailErrors(prev => [...prev, update.error]);
-                                                    }
-                                                } catch (e) {
-                                                    console.error('JSON Parse Error', e);
-                                                }
-                                            }
-                                        }
-
-                                    } catch (e: any) {
-                                        setStatus({ type: 'error', msg: e.message });
-                                    } finally {
-                                        setUploading(false);
-                                        setEmailProgress(null);
+                                    setUploading(false);
+                                    if (success > 0 || failed > 0) {
+                                        setStatus({ type: 'success', msg: `Batch sequence completed. Sent: ${success}, Failed: ${failed}` });
+                                    } else {
+                                        setStatus({ type: 'error', msg: 'No pending emails were found or processed.' });
                                     }
+
+                                    // Let the progress UI persist for a moment or until cleared by status
+                                    setEmailProgress({
+                                        total: success + failed,
+                                        processed: success + failed,
+                                        success: success,
+                                        failed: failed
+                                    });
                                 }}
                                 disabled={uploading}
                                 isLoading={uploading}
