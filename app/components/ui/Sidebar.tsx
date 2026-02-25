@@ -149,7 +149,7 @@ export function Sidebar() {
                     </button>
 
                     <div className="mt-4 text-[10px] text-center text-muted-foreground/60">
-                        v1.0.0 • Developed by AIML
+                        v1.0.0 • Developed by BHARAT HARI S - AIML
                     </div>
                 </div>
             </aside>
