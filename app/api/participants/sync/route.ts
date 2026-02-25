@@ -101,14 +101,24 @@ export async function POST(req: NextRequest) {
                 // Merge meals
                 const newMeals = [...new Set([...(existingData.allowedMeals || []), ...allowedMeals])];
 
-                batch.update(docRef, {
-                    name, email, department, year, phone, foodPreference, roomNo,
-                    status: 'generated', // RESET status so they get the new email
-                    event_name: eventName,
-                    allowedMeals: newMeals,
-                    updated_at: new Date()
-                });
-                updated++;
+                // Check if anything significant changed
+                const nameChanged = name !== existingData.name;
+                const emailChanged = email !== existingData.email;
+                const mealsChanged = newMeals.length !== (existingData.allowedMeals?.length || 0);
+                const rollChanged = normalizeRoll !== (existingData.rollNo?.toUpperCase() || '');
+                const deptChanged = department !== existingData.department;
+                // Add more if needed (food pref, etc.)
+
+                if (nameChanged || emailChanged || mealsChanged || rollChanged || deptChanged) {
+                    batch.update(docRef, {
+                        name, email, department, year, phone, foodPreference, roomNo,
+                        status: 'generated', // ONLY RESET status if data changed
+                        event_name: eventName,
+                        allowedMeals: newMeals,
+                        updated_at: new Date()
+                    });
+                    updated++;
+                }
             } else {
                 // CREATE NEW
                 const docRef = adminDb.collection('participants').doc();
