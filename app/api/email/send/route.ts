@@ -5,6 +5,7 @@ import { sendEmail } from '@/lib/email';
 
 // Force dynamic to prevent caching of the stream
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // 60 seconds timeout for this route function
 
 export async function POST(req: NextRequest) {
     let body;
@@ -15,8 +16,10 @@ export async function POST(req: NextRequest) {
     }
 
     const { pdfPurpose, hostelSubType, customMealName, eventId } = body || {};
+    console.log('[EMAIL] Processing request for eventId:', eventId, { hostelSubType, customMealName });
 
     if (!eventId) {
+        console.error('[EMAIL] Missing eventId');
         return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
     }
 
@@ -30,10 +33,13 @@ export async function POST(req: NextRequest) {
                 const snapshot = await participantsRef
                     .where('event_id', '==', eventId)
                     .where('status', '==', 'generated')
-                    .limit(450)
+                    .limit(1000)
                     .get();
 
+                console.log(`[EMAIL] Query result for ${eventId}: ${snapshot.size} participants found with status='generated'`);
+
                 if (snapshot.empty) {
+                    console.log(`[EMAIL] No pending participants for ${eventId}`);
                     controller.enqueue(encoder.encode(JSON.stringify({ message: 'No pending invitations found.', done: true }) + '\n'));
                     controller.close();
                     return;
@@ -60,7 +66,13 @@ export async function POST(req: NextRequest) {
                 const CHUNK_SIZE = 10;
 
                 // Notify start
-                controller.enqueue(encoder.encode(JSON.stringify({ status: 'started', total: totalDocs, processed: 0 }) + '\n'));
+                console.log(`[EMAIL] Starting stream with total: ${totalDocs} for event: ${realEventName} (${eventId})`);
+                controller.enqueue(encoder.encode(JSON.stringify({
+                    status: 'started',
+                    total: totalDocs,
+                    processed: 0,
+                    debug: { eventId, eventName: realEventName }
+                }) + '\n'));
 
                 for (let i = 0; i < docs.length; i += CHUNK_SIZE) {
                     const chunk = docs.slice(i, i + CHUNK_SIZE);

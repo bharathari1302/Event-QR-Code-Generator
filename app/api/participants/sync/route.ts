@@ -45,88 +45,93 @@ export async function POST(req: NextRequest) {
             syncMealName: syncMealName || ''
         });
 
-        // Fetch existing participants to prevent duplicates (by rollNo only)
+        // Fetch existing participants to map rollNo -> documentId
         const existingSnapshot = await adminDb.collection('participants')
             .where('event_id', '==', eventId)
             .get();
 
-        const existingRollNos = new Set<string>();
+        const rollToDocMap = new Map<string, string>();
+        const rollToDataMap = new Map<string, any>();
 
         existingSnapshot.forEach(doc => {
-            const data = doc.data();
-            if (data.rollNo) existingRollNos.add(data.rollNo.toUpperCase());
+            const d = doc.data();
+            if (d.rollNo) {
+                const norm = d.rollNo.toUpperCase();
+                rollToDocMap.set(norm, doc.id);
+                rollToDataMap.set(norm, d);
+            }
         });
 
         let count = 0;
+        let updated = 0;
         let skippedNoName = 0;
-        let skippedDuplicate = 0;
+        let skippedDuplicateInSheet = 0; // within the current sheet run
         const totalRows = dataRows.length;
         const batchSize = 450;
         let batch = adminDb.batch();
         let batchCount = 0;
 
+        const currentRunRolls = new Set<string>();
+
         for (const row of dataRows) {
             const data = parseParticipantRow(row, headers);
-            if (!data) {
+            if (!data || !data.name) {
                 skippedNoName++;
                 continue;
             }
 
             const { name, email, rollNo, department, college, year, phone, foodPreference, roomNo } = data;
-
-            // Check for duplicates by rollNo only
             const normalizeRoll = rollNo ? rollNo.toUpperCase() : '';
 
-            if (normalizeRoll && existingRollNos.has(normalizeRoll)) {
-                skippedDuplicate++;
+            // 1. Skip if duplicate WITHIN THE SAME SHEET RUN
+            if (normalizeRoll && currentRunRolls.has(normalizeRoll)) {
+                skippedDuplicateInSheet++;
                 continue;
             }
+            if (normalizeRoll) currentRunRolls.add(normalizeRoll);
 
-            // Generate Token
-            const token = rollNo || Math.random().toString(36).substring(7).toUpperCase();
+            // 2. Decide: Create OR Update
+            const existingId = normalizeRoll ? rollToDocMap.get(normalizeRoll) : null;
+            const existingData = normalizeRoll ? rollToDataMap.get(normalizeRoll) : null;
 
-            // Create Firestore Doc
-            const docRef = adminDb.collection('participants').doc();
+            if (existingId && existingData) {
+                // UPDATE EXISTING
+                const docRef = adminDb.collection('participants').doc(existingId);
 
-            batch.set(docRef, {
-                document_id: docRef.id, // Keep for legacy
-                name: name,
-                email: email,
-                college: college,
-                event_name: eventName,
-                event_id: eventId,
-                department: department,
-                year: year,
-                phone: phone,
-                rollNo: rollNo,
+                // Merge meals
+                const newMeals = [...new Set([...(existingData.allowedMeals || []), ...allowedMeals])];
 
-                // Fields for specific event types
-                foodPreference: foodPreference,
-                roomNo: roomNo,
+                batch.update(docRef, {
+                    name, email, department, year, phone, foodPreference, roomNo,
+                    status: 'generated', // RESET status so they get the new email
+                    event_name: eventName,
+                    allowedMeals: newMeals,
+                    updated_at: new Date()
+                });
+                updated++;
+            } else {
+                // CREATE NEW
+                const docRef = adminDb.collection('participants').doc();
+                const token = rollNo || Math.random().toString(36).substring(7).toUpperCase();
 
-                token: token,
-                status: 'generated',
-                ticket_id: 'INV-' + Date.now().toString().slice(-6) + '-' + count,
-                created_at: new Date(),
-                check_in_time: null,
+                batch.set(docRef, {
+                    document_id: docRef.id,
+                    name, email, college, event_name: eventName, event_id: eventId,
+                    department, year, phone, rollNo, foodPreference, roomNo,
+                    token,
+                    status: 'generated',
+                    ticket_id: 'INV-' + Date.now().toString().slice(-6) + '-' + count,
+                    created_at: new Date(),
+                    check_in_time: null,
+                    allowedMeals: allowedMeals,
+                    tokenUsage: {
+                        breakfast: false, lunch: false, snacks: false, dinner: false, icecream: false
+                    }
+                });
+                count++;
+            }
 
-                // MEAL CONFIGURATION
-                allowedMeals: allowedMeals,
-                tokenUsage: {
-                    breakfast: false,
-                    lunch: false,
-                    snacks: false,
-                    dinner: false,
-                    icecream: false
-                }
-            });
-
-            // Add to local set to prevent duplicates within the same sheet sync
-            if (normalizeRoll) existingRollNos.add(normalizeRoll);
-
-            count++;
             batchCount++;
-
             if (batchCount >= batchSize) {
                 await batch.commit();
                 batch = adminDb.batch();
@@ -140,11 +145,13 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            message: `Successfully synced ${count} participants from Google Sheet.`,
-            count: count,
+            message: `Processed ${count + updated} participants (${count} new, ${updated} updated).`,
+            count: count + updated,
+            newCount: count,
+            updatedCount: updated,
             totalRows: totalRows,
             skippedNoName: skippedNoName,
-            skippedDuplicate: skippedDuplicate
+            skippedDuplicate: skippedDuplicateInSheet
         });
 
     } catch (error: any) {

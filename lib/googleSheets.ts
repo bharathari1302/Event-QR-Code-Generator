@@ -84,14 +84,14 @@ export function parseParticipantRow(row: string[], headers: string[]) {
     if (nameIdx === -1) return null; // Name is mandatory
 
     return {
-        name: row[nameIdx] || null,
-        email: emailIdx !== -1 ? (row[emailIdx] || null) : null,
-        rollNo: rollNoIdx !== -1 ? (row[rollNoIdx]?.toUpperCase() || null) : null,
-        department: deptIdx !== -1 ? (row[deptIdx] || null) : null,
-        college: collegeIdx !== -1 ? (row[collegeIdx] || 'Kongu Engineering College') : 'Kongu Engineering College',
-        year: yearIdx !== -1 ? (row[yearIdx] || null) : null,
-        phone: phoneIdx !== -1 ? (row[phoneIdx] || null) : null,
-        foodPreference: foodIdx !== -1 ? (row[foodIdx] || 'Veg') : 'Veg',
-        roomNo: roomIdx !== -1 ? (row[roomIdx] || null) : null,
+        name: row[nameIdx]?.trim() || null,
+        email: emailIdx !== -1 ? (row[emailIdx]?.trim() || null) : null,
+        rollNo: rollNoIdx !== -1 ? (row[rollNoIdx]?.trim().toUpperCase() || null) : null,
+        department: deptIdx !== -1 ? (row[deptIdx]?.trim() || null) : null,
+        college: collegeIdx !== -1 ? (row[collegeIdx]?.trim() || 'Kongu Engineering College') : 'Kongu Engineering College',
+        year: yearIdx !== -1 ? (row[yearIdx]?.trim() || null) : null,
+        phone: phoneIdx !== -1 ? (row[phoneIdx]?.trim() || null) : null,
+        foodPreference: foodIdx !== -1 ? (row[foodIdx]?.trim() || 'Veg') : 'Veg',
+        roomNo: roomIdx !== -1 ? (row[roomIdx]?.trim() || null) : null,
     };
 }
