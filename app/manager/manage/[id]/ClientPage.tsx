@@ -19,7 +19,8 @@ import {
     Code,
     Copy,
     RefreshCw,
-    X
+    X,
+    UserPlus
 } from 'lucide-react';
 import { Button } from '@/app/components/ui/Button';
 
@@ -64,6 +65,13 @@ export default function ManageEventPage() {
     const [manualStudent, setManualStudent] = useState<{ id: string, name: string, rollNo: string, email: string, department: string, status: string } | null>(null);
     const [searchingManualStudent, setSearchingManualStudent] = useState(false);
     const [sendingManualEmail, setSendingManualEmail] = useState(false);
+
+    // Manual Add Participant State
+    const [addingParticipant, setAddingParticipant] = useState(false);
+    const [newParticipant, setNewParticipant] = useState({
+        name: '', email: '', rollNo: '', department: '', college: '',
+        year: '', phone: '', roomNo: '', foodPreference: 'Veg'
+    });
 
     // Sync-specific token settings
     const [syncSubType, setSyncSubType] = useState<'hostel_day' | 'other'>('hostel_day');
@@ -559,6 +567,48 @@ export default function ManageEventPage() {
         }
     };
 
+    const handleAddParticipant = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setAddingParticipant(true);
+        setStatus({ type: '', msg: '' });
+
+        try {
+            const res = await fetch('/api/participants/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    eventId,
+                    eventName,
+                    subEventName,
+                    ...newParticipant
+                })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                setStatus({
+                    type: 'success',
+                    msg: data.type === 'updated'
+                        ? `Participant ${newParticipant.name} updated successfully!`
+                        : `Participant ${newParticipant.name} added successfully!`
+                });
+
+                // Reset form
+                setNewParticipant({
+                    name: '', email: '', rollNo: '', department: '', college: '',
+                    year: '', phone: '', roomNo: '', foodPreference: 'Veg'
+                });
+            } else {
+                setStatus({ type: 'error', msg: data.error || 'Failed to add participant.' });
+            }
+        } catch (error: any) {
+            setStatus({ type: 'error', msg: 'Network error: ' + error.message });
+        } finally {
+            setAddingParticipant(false);
+        }
+    };
+
     return (
         <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-1 sm:px-0 pb-20 text-foreground">
             {/* Header */}
@@ -780,6 +830,68 @@ export default function ManageEventPage() {
                                     Upload & Process
                                 </Button>
                             )}
+                        </div>
+                    </div>
+
+                    {/* Manual Add Participant */}
+                    <div className="bg-card border border-border rounded-xl shadow-sm p-4 sm:p-6">
+                        <h2 className="text-base sm:text-lg font-semibold mb-4 flex items-center gap-2 text-card-foreground">
+                            <UserPlus className="w-5 h-5 text-emerald-500" /> Manual Student Entry
+                        </h2>
+                        <div className="bg-emerald-50/50 border border-emerald-100 rounded-lg p-4 sm:p-5">
+                            <p className="text-sm text-emerald-800 mb-4">
+                                Add a single participant directly to the database. If the email or Roll No exactly matches an existing record, it will update them instead.
+                            </p>
+
+                            <form onSubmit={handleAddParticipant} className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-emerald-900 mb-1">Full Name *</label>
+                                        <input required type="text" value={newParticipant.name} onChange={(e) => setNewParticipant({ ...newParticipant, name: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-emerald-900 mb-1">Email Address *</label>
+                                        <input required type="email" value={newParticipant.email} onChange={(e) => setNewParticipant({ ...newParticipant, email: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-emerald-900 mb-1">Roll No (Recommended)</label>
+                                        <input type="text" value={newParticipant.rollNo} onChange={(e) => setNewParticipant({ ...newParticipant, rollNo: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-emerald-900 mb-1">Department</label>
+                                        <input type="text" value={newParticipant.department} onChange={(e) => setNewParticipant({ ...newParticipant, department: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-emerald-900 mb-1">Phone</label>
+                                        <input type="text" value={newParticipant.phone} onChange={(e) => setNewParticipant({ ...newParticipant, phone: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-emerald-900 mb-1">Food Preference</label>
+                                        <select value={newParticipant.foodPreference} onChange={(e) => setNewParticipant({ ...newParticipant, foodPreference: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                            <option value="Veg">Veg</option>
+                                            <option value="Non Veg">Non-Veg</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-emerald-900 mb-1">Room No (Optional)</label>
+                                        <input type="text" value={newParticipant.roomNo} onChange={(e) => setNewParticipant({ ...newParticipant, roomNo: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-emerald-900 mb-1">College (Optional)</label>
+                                        <input type="text" value={newParticipant.college} onChange={(e) => setNewParticipant({ ...newParticipant, college: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-emerald-900 mb-1">Year (Optional)</label>
+                                        <input type="text" value={newParticipant.year} onChange={(e) => setNewParticipant({ ...newParticipant, year: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                                    </div>
+                                </div>
+
+                                <div className="pt-2 flex justify-end">
+                                    <Button type="submit" disabled={addingParticipant || !newParticipant.name || !newParticipant.email} isLoading={addingParticipant} className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto">
+                                        <UserPlus className="w-4 h-4 mr-2" /> Add Participant manually
+                                    </Button>
+                                </div>
+                            </form>
                         </div>
                     </div>
 
