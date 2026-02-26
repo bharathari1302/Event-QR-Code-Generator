@@ -59,7 +59,8 @@ export default function WardenDashboard() {
         };
 
         fetchStats();
-        const interval = setInterval(fetchStats, 5000); // 5 seconds poll
+        // Reduced polling from 5s to 60s to prevent Firebase Quota Exceeded
+        const interval = setInterval(fetchStats, 60000);
 
         return () => clearInterval(interval);
     }, [selectedEventId]);
@@ -220,8 +221,8 @@ function DetailedView({ eventId, eventName }: { eventId: string, eventName: stri
         };
 
         fetchDetails();
-        // Optional: Poll every 10s or just on manual refresh/change
-        const interval = setInterval(fetchDetails, 10000);
+        // Reduced polling from 10s to 120s to prevent Firebase Quota Exceeded
+        const interval = setInterval(fetchDetails, 120000);
         return () => clearInterval(interval);
 
     }, [eventId, selectedMeal]);
