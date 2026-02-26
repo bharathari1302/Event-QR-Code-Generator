@@ -190,6 +190,7 @@ function DetailedView({ eventId, eventName }: { eventId: string, eventName: stri
     // Filter States
     const [filterFood, setFilterFood] = useState('ALL'); // ALL, Veg, Non Veg
     const [filterStatus, setFilterStatus] = useState('ALL'); // ALL, Served, Pending
+    const [searchTerm, setSearchTerm] = useState(''); // Name or Roll No Search
 
     const toggleColumn = (col: string) => {
         if (selectedColumns.includes(col)) {
@@ -235,7 +236,11 @@ function DetailedView({ eventId, eventName }: { eventId: string, eventName: stri
 
         const statusMatch = filterStatus === 'ALL' || p.status === filterStatus;
 
-        return foodMatch && statusMatch;
+        const searchMatch = !searchTerm ||
+            (p.name && p.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (p.rollNo && p.rollNo.toLowerCase().includes(searchTerm.toLowerCase()));
+
+        return foodMatch && statusMatch && searchMatch;
     });
 
     const togglePdfStatus = (status: string) => {
@@ -260,12 +265,14 @@ function DetailedView({ eventId, eventName }: { eventId: string, eventName: stri
                 (filterFood === 'Non Veg' && p.foodPreference.toLowerCase().includes('non'));
 
             // Status match based on the checkboxes
-            // We assume p.status matches 'Served' or 'Pending' (or whatever isn't Served).
-            // Let's normalize: if p.status is 'Served', match 'Served'. Else match 'Pending'.
             const pStatus = p.status === 'Served' ? 'Served' : 'Pending';
             const statusMatch = pdfFilterStatuses.includes(pStatus);
 
-            return foodMatch && statusMatch;
+            const searchMatch = !searchTerm ||
+                (p.name && p.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (p.rollNo && p.rollNo.toLowerCase().includes(searchTerm.toLowerCase()));
+
+            return foodMatch && statusMatch && searchMatch;
         });
 
         // Title
@@ -324,7 +331,21 @@ function DetailedView({ eventId, eventName }: { eventId: string, eventName: stri
                     </button>
                 </div>
 
-                <div className="flex flex-wrap md:flex-nowrap gap-3 items-center w-full md:w-auto">
+                <div className="flex flex-wrap lg:flex-nowrap gap-3 items-center w-full md:w-auto">
+                    {/* Search Field */}
+                    <div className="relative w-full lg:w-48">
+                        <input
+                            type="text"
+                            placeholder="Search Name or Roll No..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full px-3 py-2 pl-9 text-sm border border-border rounded-lg bg-card font-medium text-foreground shadow-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                        />
+                        <svg className="w-4 h-4 text-muted-foreground absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+
                     {/* Filters */}
                     <select
                         className="px-3 py-2 text-sm border border-border rounded-lg bg-card font-medium text-foreground shadow-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
