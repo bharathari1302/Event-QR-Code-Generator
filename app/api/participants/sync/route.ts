@@ -50,15 +50,18 @@ export async function POST(req: NextRequest) {
             .where('event_id', '==', eventId)
             .get();
 
-        const rollToDocMap = new Map<string, string>();
-        const rollToDataMap = new Map<string, any>();
+        const docIdToDataMap = new Map<string, any>();
+        const rollToDocIdMap = new Map<string, string>();
+        const emailToDocIdMap = new Map<string, string>();
 
         existingSnapshot.forEach(doc => {
             const d = doc.data();
+            docIdToDataMap.set(doc.id, d);
             if (d.rollNo) {
-                const norm = d.rollNo.toUpperCase();
-                rollToDocMap.set(norm, doc.id);
-                rollToDataMap.set(norm, d);
+                rollToDocIdMap.set(d.rollNo.toUpperCase().trim(), doc.id);
+            }
+            if (d.email) {
+                emailToDocIdMap.set(d.email.toLowerCase().trim(), doc.id);
             }
         });
 
@@ -81,18 +84,26 @@ export async function POST(req: NextRequest) {
             }
 
             const { name, email, rollNo, department, college, year, phone, foodPreference, roomNo } = data;
-            const normalizeRoll = rollNo ? rollNo.toUpperCase() : '';
+            const normalizeRoll = rollNo ? rollNo.toUpperCase().trim() : '';
+            const normalizeEmail = email ? email.toLowerCase().trim() : '';
 
             // 1. Skip if duplicate WITHIN THE SAME SHEET RUN
-            if (normalizeRoll && currentRunRolls.has(normalizeRoll)) {
+            const dedupeKey = normalizeRoll || normalizeEmail || name.toLowerCase().trim();
+            if (dedupeKey && currentRunRolls.has(dedupeKey)) {
                 skippedDuplicateInSheet++;
                 continue;
             }
-            if (normalizeRoll) currentRunRolls.add(normalizeRoll);
+            if (dedupeKey) currentRunRolls.add(dedupeKey);
 
             // 2. Decide: Create OR Update
-            const existingId = normalizeRoll ? rollToDocMap.get(normalizeRoll) : null;
-            const existingData = normalizeRoll ? rollToDataMap.get(normalizeRoll) : null;
+            let existingId = null;
+            if (normalizeRoll && rollToDocIdMap.has(normalizeRoll)) {
+                existingId = rollToDocIdMap.get(normalizeRoll);
+            } else if (normalizeEmail && emailToDocIdMap.has(normalizeEmail)) {
+                existingId = emailToDocIdMap.get(normalizeEmail);
+            }
+
+            const existingData = existingId ? docIdToDataMap.get(existingId) : null;
 
             if (existingId && existingData) {
                 // UPDATE EXISTING

@@ -1,10 +1,17 @@
 const admin = require('firebase-admin');
 const fs = require('fs');
 const path = require('path');
+const { google } = require('googleapis');
 
 // Manually parse .env.local for credentials
 const envPath = path.join(__dirname, '.env.local');
-const envContent = fs.readFileSync(envPath, 'utf8');
+let envContent = '';
+try {
+    envContent = fs.readFileSync(envPath, 'utf8');
+} catch (e) {
+    console.error('Could not read .env.local');
+}
+
 const env = {};
 envContent.split('\n').forEach(line => {
     const match = line.match(/^([^=]+)=(.*)$/);

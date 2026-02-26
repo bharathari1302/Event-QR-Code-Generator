@@ -70,6 +70,12 @@ export default function ManageEventPage() {
     const [syncSubType, setSyncSubType] = useState<'hostel_day' | 'other'>('hostel_day');
     const [syncMealName, setSyncMealName] = useState('');
 
+    // Manual Email Trigger State
+    const [manualRollNo, setManualRollNo] = useState('');
+    const [manualStudent, setManualStudent] = useState<{ id: string, name: string, rollNo: string, email: string, department: string, status: string } | null>(null);
+    const [searchingManualStudent, setSearchingManualStudent] = useState(false);
+    const [sendingManualEmail, setSendingManualEmail] = useState(false);
+
     // Coordinator Management State
     const [coordinators, setCoordinators] = useState<Coordinator[]>([]);
     const [fetchingCoordinators, setFetchingCoordinators] = useState(false);
@@ -554,6 +560,94 @@ export default function ManageEventPage() {
         }
     };
 
+    const handleSearchManualStudent = async () => {
+        if (!manualRollNo.trim()) return;
+        setSearchingManualStudent(true);
+        setManualStudent(null);
+        setStatus({ type: '', msg: '' });
+
+        try {
+            const res = await fetch(`/api/participants/search?eventId=${eventId}&rollNo=${manualRollNo.trim()}`);
+            const data = await res.json();
+
+            if (res.ok) {
+                setManualStudent(data);
+            } else {
+                setStatus({ type: 'error', msg: data.error || 'Student not found in this event.' });
+            }
+        } catch (e: any) {
+            setStatus({ type: 'error', msg: 'Search failed.' });
+        } finally {
+            setSearchingManualStudent(false);
+        }
+    };
+
+    const handleSendManualEmail = async () => {
+        if (!manualStudent) return;
+        setSendingManualEmail(true);
+        setStatus({ type: '', msg: '' });
+
+        try {
+            const res = await fetch('/api/email/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    eventId,
+                    pdfPurpose: 'hostel',
+                    hostelSubType: syncSubType,
+                    customMealName: syncMealName,
+                    targetRollNo: manualStudent.rollNo
+                })
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || 'Failed to send email');
+            }
+
+            // Since it's a stream, read until complete.
+            const reader = res.body?.getReader();
+            const decoder = new TextDecoder();
+            let success = false;
+            let errorMessage = '';
+
+            if (reader) {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        try {
+                            const update = JSON.parse(line);
+                            if (update.status === 'completed') {
+                                success = (update.success || 0) > 0;
+                            } else if (update.status === 'error') {
+                                errorMessage = update.error;
+                            }
+                        } catch (e) { }
+                    }
+                }
+            }
+
+            if (success) {
+                setStatus({ type: 'success', msg: `Email successfully sent to ${manualStudent.name} (${manualStudent.email})` });
+                // Reset states
+                setManualStudent(null);
+                setManualRollNo('');
+            } else {
+                setStatus({ type: 'error', msg: errorMessage || 'Failed to send email.' });
+            }
+
+        } catch (error: any) {
+            setStatus({ type: 'error', msg: error.message });
+        } finally {
+            setSendingManualEmail(false);
+        }
+    };
+
     return (
         <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-1 sm:px-0">
             {/* Header */}
@@ -818,6 +912,66 @@ export default function ManageEventPage() {
                                 <Button onClick={handleUpload} disabled={uploading} isLoading={uploading} className="w-full">
                                     Upload & Process
                                 </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Manual Email Sender */}
+                    <div className="bg-card border border-border rounded-xl shadow-sm p-4 sm:p-6">
+                        <h2 className="text-base sm:text-lg font-semibold mb-4 flex items-center gap-2 text-card-foreground">
+                            <Mail className="w-5 h-5 text-indigo-500" /> Manual Target Email Sender
+                        </h2>
+                        <div className="bg-indigo-50/50 border border-indigo-100 rounded-lg p-4 sm:p-5">
+                            <p className="text-sm text-indigo-800 mb-4">
+                                If a participant was skipped or modified, search their Roll No to send their email individually.
+                            </p>
+
+                            <div className="flex gap-2 mb-4">
+                                <div className="relative flex-1">
+                                    <Search className="absolute left-3 top-2.5 text-muted-foreground w-4 h-4" />
+                                    <input
+                                        type="text"
+                                        placeholder="Enter Roll No"
+                                        value={manualRollNo}
+                                        onChange={(e) => setManualRollNo(e.target.value.toUpperCase())}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSearchManualStudent()}
+                                        className="w-full pl-9 p-2 bg-background border border-input rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                    />
+                                </div>
+                                <Button
+                                    onClick={handleSearchManualStudent}
+                                    disabled={searchingManualStudent || !manualRollNo}
+                                    isLoading={searchingManualStudent}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                                >
+                                    Search
+                                </Button>
+                            </div>
+
+                            {manualStudent && (
+                                <div className="border border-indigo-200 bg-white p-4 rounded-lg animate-in zoom-in-95">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div>
+                                            <h4 className="font-bold text-indigo-900">{manualStudent.name}</h4>
+                                            <p className="text-xs text-muted-foreground">{manualStudent.rollNo} • {manualStudent.department}</p>
+                                        </div>
+                                    </div>
+                                    <div className="mb-4">
+                                        <p className="text-sm"><span className="font-medium">Email:</span> {manualStudent.email || 'Not provided'}</p>
+                                        <p className="text-sm"><span className="font-medium">Status:</span> {manualStudent.status}</p>
+                                    </div>
+                                    <Button
+                                        onClick={handleSendManualEmail}
+                                        disabled={sendingManualEmail || !manualStudent.email}
+                                        isLoading={sendingManualEmail}
+                                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
+                                    >
+                                        <Mail className="w-4 h-4 mr-2" /> Send Invitation Email
+                                    </Button>
+                                    {!manualStudent.email && (
+                                        <p className="text-xs text-red-500 mt-2 text-center">Cannot send email: No email address on file.</p>
+                                    )}
+                                </div>
                             )}
                         </div>
                     </div>

@@ -15,8 +15,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
 
-    const { pdfPurpose, hostelSubType, customMealName, eventId } = body || {};
-    console.log('[EMAIL] Processing request for eventId:', eventId, { hostelSubType, customMealName });
+    const { pdfPurpose, hostelSubType, customMealName, eventId, targetRollNo } = body || {};
+    console.log('[EMAIL] Processing request for eventId:', eventId, { hostelSubType, customMealName, targetRollNo });
 
     if (!eventId) {
         console.error('[EMAIL] Missing eventId');
@@ -30,9 +30,14 @@ export async function POST(req: NextRequest) {
             try {
                 // 1. Query participants for THIS event - BATCHED for stability on Hobby Tier
                 const participantsRef = adminDb.collection('participants');
-                const baseQuery = participantsRef
+                let baseQuery = participantsRef
                     .where('event_id', '==', eventId)
                     .where('status', '==', 'generated');
+
+                // If specific target applies, filter it.
+                if (targetRollNo) {
+                    baseQuery = baseQuery.where('rollNo', '==', targetRollNo.trim().toUpperCase());
+                }
 
                 // Get absolute current pending count for the progress bar
                 const totalSnapshot = await baseQuery.count().get();
