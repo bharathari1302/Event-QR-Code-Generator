@@ -1233,8 +1233,8 @@ export default function ManageEventPage() {
                             </div>
 
                         </div>
-                        {/* Coordinator List */}
-                        <div className="mt-5 border-t border-border pt-5 space-y-3">
+                        {/* Coordinator List - inside p-5 wrapper continues below */}
+                        <div className="mt-5 border-t border-border pt-5 space-y-3 px-5 pb-5">
                             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Assigned Coordinators</h3>
                             {fetchingCoordinators ? (
                                 <div className="flex items-center justify-center py-8 text-muted-foreground">
@@ -1281,8 +1281,8 @@ export default function ManageEventPage() {
                                                             <button
                                                                 onClick={() => handleUpdatePermission(c.id, ['ALL'])}
                                                                 className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-all ${isAll
-                                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                                                                        : 'bg-background text-muted-foreground border-border hover:border-blue-300 hover:text-blue-600'
+                                                                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                                                    : 'bg-background text-muted-foreground border-border hover:border-blue-300 hover:text-blue-600'
                                                                     }`}
                                                             >
                                                                 All Depts
@@ -1292,8 +1292,8 @@ export default function ManageEventPage() {
                                                                     if (isAll) handleUpdatePermission(c.id, [c.department]);
                                                                 }}
                                                                 className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-all ${!isAll
-                                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                                                                        : 'bg-background text-muted-foreground border-border hover:border-blue-300 hover:text-blue-600'
+                                                                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                                                    : 'bg-background text-muted-foreground border-border hover:border-blue-300 hover:text-blue-600'
                                                                     }`}
                                                             >
                                                                 Custom
@@ -1315,8 +1315,8 @@ export default function ManageEventPage() {
                                                                             handleUpdatePermission(c.id, newAllowed);
                                                                         }}
                                                                         className={`px-2.5 py-1 text-[10px] font-semibold rounded-full border transition-all ${isAllowed
-                                                                                ? 'bg-blue-100 text-blue-700 border-blue-300'
-                                                                                : 'bg-muted/40 text-muted-foreground border-border hover:border-blue-300 hover:text-blue-500'
+                                                                            ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                                                            : 'bg-muted/40 text-muted-foreground border-border hover:border-blue-300 hover:text-blue-500'
                                                                             }`}
                                                                     >
                                                                         {dept}
