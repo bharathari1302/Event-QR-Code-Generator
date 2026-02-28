@@ -13,6 +13,7 @@ import {
     Mail,
     CheckCircle2,
     AlertCircle,
+    Loader2,
     Users,
     Trash2,
     Search,
@@ -1111,68 +1112,98 @@ export default function ManageEventPage() {
                             </div>
 
                             {/* Coordinator List */}
-                            <div className="space-y-4">
-                                <h3 className="text-sm font-semibold text-foreground">Assigned Coordinators</h3>
+                            <div className="mt-5 border-t border-border pt-5 space-y-3">
+                                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Assigned Coordinators</h3>
                                 {fetchingCoordinators ? (
-                                    <div className="text-center py-4 text-muted-foreground text-sm animate-pulse">Loading...</div>
+                                    <div className="flex items-center justify-center py-8 text-muted-foreground">
+                                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                                        <span className="text-sm">Loading coordinators...</span>
+                                    </div>
                                 ) : coordinators.length === 0 ? (
-                                    <div className="text-center py-4 text-muted-foreground text-sm italic border border-dashed rounded-lg">
-                                        No coordinators assigned.
+                                    <div className="flex flex-col items-center justify-center py-8 text-center border-2 border-dashed border-border rounded-xl">
+                                        <Users className="w-8 h-8 text-muted-foreground/40 mb-2" />
+                                        <p className="text-sm text-muted-foreground">No coordinators assigned yet.</p>
+                                        <p className="text-xs text-muted-foreground/60 mt-0.5">Search by Roll No above to add one.</p>
                                     </div>
                                 ) : (
                                     <div className="space-y-3">
-                                        {coordinators.map(c => (
-                                            <div key={c.id} className="bg-muted/30 border border-border rounded-lg p-3 text-sm">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <div>
-                                                        <span className="font-bold block text-foreground">{c.rollNo}</span>
-                                                        <span className="text-xs text-muted-foreground">{c.department}</span>
-                                                    </div>
-                                                    <button onClick={() => handleRemoveCoordinator(c.id)} className="text-red-500 hover:text-red-700 p-1" title="Remove">
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                                <div>
-                                                    <label className="text-xs font-medium text-muted-foreground block mb-1">Allowed Scans:</label>
-                                                    <select
-                                                        value={c.allowedDepartments.includes('ALL') ? 'ALL' : 'CUSTOM'}
-                                                        onChange={(e) => {
-                                                            if (e.target.value === 'ALL') handleUpdatePermission(c.id, ['ALL']);
-                                                            else handleUpdatePermission(c.id, [c.department]);
-                                                        }}
-                                                        className="w-full p-1.5 text-xs bg-background border border-input rounded mb-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                    >
-                                                        <option value="ALL">All Departments</option>
-                                                        <option value="CUSTOM">Specific Departments</option>
-                                                    </select>
-
-                                                    {!c.allowedDepartments.includes('ALL') && (
-                                                        <div className="flex flex-wrap gap-1 mt-1">
-                                                            {DEPARTMENTS.map(dept => {
-                                                                const isAllowed = c.allowedDepartments.includes(dept);
-                                                                return (
-                                                                    <button
-                                                                        key={dept}
-                                                                        onClick={() => {
-                                                                            const newAllowed = isAllowed
-                                                                                ? c.allowedDepartments.filter(d => d !== dept)
-                                                                                : [...c.allowedDepartments, dept];
-                                                                            handleUpdatePermission(c.id, newAllowed);
-                                                                        }}
-                                                                        className={`px-2 py-0.5 text-[10px] rounded border transition-colors ${isAllowed
-                                                                            ? 'bg-blue-100 text-blue-700 border-blue-200'
-                                                                            : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
-                                                                            }`}
-                                                                    >
-                                                                        {dept}
-                                                                    </button>
-                                                                );
-                                                            })}
+                                        {coordinators.map(c => {
+                                            const initials = (c.rollNo || '?').slice(-2).toUpperCase();
+                                            const isAll = c.allowedDepartments.includes('ALL');
+                                            return (
+                                                <div key={c.id} className="border border-border rounded-xl overflow-hidden bg-background shadow-sm">
+                                                    {/* Coordinator Header */}
+                                                    <div className="flex items-center gap-3 px-4 py-3 bg-muted/20">
+                                                        <div className="flex items-center justify-center w-9 h-9 rounded-full bg-blue-100 text-blue-700 font-bold text-xs shrink-0">
+                                                            {initials}
                                                         </div>
-                                                    )}
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-bold text-sm text-foreground leading-tight">{c.rollNo}</p>
+                                                            <p className="text-xs text-muted-foreground truncate">{c.department || 'Unknown Dept'}</p>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleRemoveCoordinator(c.id)}
+                                                            className="p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                                                            title="Remove coordinator"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Permissions */}
+                                                    <div className="px-4 py-3 space-y-3">
+                                                        <div>
+                                                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2">Scan Permission</p>
+                                                            <div className="flex gap-1.5">
+                                                                <button
+                                                                    onClick={() => handleUpdatePermission(c.id, ['ALL'])}
+                                                                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-all ${isAll
+                                                                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                                                            : 'bg-background text-muted-foreground border-border hover:border-blue-300 hover:text-blue-600'
+                                                                        }`}
+                                                                >
+                                                                    All Depts
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => { if (isAll) handleUpdatePermission(c.id, [c.department]); }}
+                                                                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-all ${!isAll
+                                                                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                                                            : 'bg-background text-muted-foreground border-border hover:border-blue-300 hover:text-blue-600'
+                                                                        }`}
+                                                                >
+                                                                    Custom
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {!isAll && (
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {DEPARTMENTS.map(dept => {
+                                                                    const isAllowed = c.allowedDepartments.includes(dept);
+                                                                    return (
+                                                                        <button
+                                                                            key={dept}
+                                                                            onClick={() => {
+                                                                                const newAllowed = isAllowed
+                                                                                    ? c.allowedDepartments.filter(d => d !== dept)
+                                                                                    : [...c.allowedDepartments, dept];
+                                                                                handleUpdatePermission(c.id, newAllowed);
+                                                                            }}
+                                                                            className={`px-2.5 py-1 text-[10px] font-semibold rounded-full border transition-all ${isAllowed
+                                                                                    ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                                                                    : 'bg-muted/40 text-muted-foreground border-border hover:border-blue-300 hover:text-blue-500'
+                                                                                }`}
+                                                                        >
+                                                                            {dept}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
