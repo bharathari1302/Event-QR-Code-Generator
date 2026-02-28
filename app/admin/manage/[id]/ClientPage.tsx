@@ -698,75 +698,79 @@ export default function ManageEventPage() {
     };
 
     return (
-        <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-1 sm:px-0">
-            {/* Header */}
-            <div className="flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-1 sm:px-0 pb-12">
+            {/* ── Page Header ── */}
+            <div className="flex items-center gap-3 pb-5 mb-6 border-b border-border">
                 <Link href="/admin/events">
-                    <Button variant="ghost" size="icon">
+                    <Button variant="ghost" size="icon" className="shrink-0">
                         <ArrowLeft className="w-5 h-5" />
                     </Button>
                 </Link>
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Manage Event</h1>
-                    <p className="text-muted-foreground text-sm">{eventName}</p>
+                <div className="min-w-0">
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground leading-tight">
+                        Manage Event
+                    </h1>
+                    <p className="text-muted-foreground text-sm truncate">{eventName}</p>
                 </div>
             </div>
 
-            {/* Status Message */}
+            {/* ── Status Banner ── */}
             {status.msg && (
-                <div className={`p-3 sm:p-4 rounded-lg flex items-start sm:items-center gap-3 justify-between ${status.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+                <div className={`flex items-start gap-3 justify-between p-4 rounded-xl border animate-in fade-in slide-in-from-top-2 ${status.type === 'success'
+                    ? 'bg-green-50 text-green-800 border-green-200'
+                    : 'bg-red-50 text-red-800 border-red-200'
                     }`}>
-                    <div className="flex items-start sm:items-center gap-3">
-                        {status.type === 'success' ? <CheckCircle2 className="w-5 h-5 mt-0.5 sm:mt-0 flex-shrink-0" /> : <AlertCircle className="w-5 h-5 mt-0.5 sm:mt-0 flex-shrink-0" />}
-                        <span className="font-medium text-sm sm:text-base leading-tight">{status.msg}</span>
+                    <div className="flex items-start gap-3">
+                        {status.type === 'success'
+                            ? <CheckCircle2 className="w-5 h-5 mt-0.5 flex-shrink-0 text-green-600" />
+                            : <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0 text-red-500" />}
+                        <span className="text-sm font-medium leading-snug">{status.msg}</span>
                     </div>
                     <button
                         onClick={() => setStatus({ type: '', msg: '' })}
-                        className="text-gray-500 hover:text-gray-700 transition-colors"
-                        aria-label="Dismiss message"
+                        className="text-current opacity-50 hover:opacity-100 transition-opacity shrink-0"
+                        aria-label="Dismiss"
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
                 </div>
             )}
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
-                {/* Left Column: Settings */}
-                <div className="space-y-4 sm:space-y-6 xl:col-span-2">
+            {/* ── Main Grid ── */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 sm:gap-6">
 
-                    {/* Event Configuration */}
-                    <div className="bg-card border border-border rounded-xl shadow-sm p-4 sm:p-6">
-                        <h2 className="text-base sm:text-lg font-semibold mb-4 sm:mb-6 flex items-center gap-2 text-card-foreground">
-                            <Save className="w-5 h-5 text-primary" /> Event Configuration
-                        </h2>
+                {/* ── Left Column ── */}
+                <div className="space-y-5 xl:col-span-2">
 
-                        <div className="space-y-4">
-                            {/* General Settings */}
+                    {/* ① Event Configuration */}
+                    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                        <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
+                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">1</span>
+                            <Save className="w-4 h-4 text-primary" />
+                            <h2 className="text-sm font-semibold text-card-foreground">Event Configuration</h2>
+                        </div>
+                        <div className="p-5 space-y-5">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                                        Sub-Event Name
-                                    </label>
+                                    <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Sub-Event Name</label>
                                     <input
                                         type="text"
                                         placeholder="e.g. Paper Presentation"
-                                        className="w-full p-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-ring focus:outline-none text-foreground"
+                                        className="w-full px-3 py-2.5 text-sm bg-background border border-input rounded-lg focus:ring-2 focus:ring-ring focus:outline-none text-foreground"
                                         value={subEventName}
                                         onChange={(e) => setSubEventName(e.target.value)}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                                        Google Drive Folder
-                                    </label>
+                                    <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Google Drive Folder</label>
                                     <div className="relative">
-                                        <LinkIcon className="absolute left-3 top-3 text-muted-foreground w-4 h-4" />
+                                        <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
                                         <input
                                             type="text"
                                             placeholder="https://drive.google.com..."
-                                            className="w-full pl-9 p-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-ring focus:outline-none text-foreground"
+                                            className="w-full pl-9 pr-3 py-2.5 text-sm bg-background border border-input rounded-lg focus:ring-2 focus:ring-ring focus:outline-none text-foreground"
                                             value={driveLink}
                                             onChange={(e) => setDriveLink(e.target.value)}
                                         />
@@ -774,33 +778,33 @@ export default function ManageEventPage() {
                                 </div>
                             </div>
 
-                            <div className="border-t border-border my-4 pt-4">
-                                <h3 className="text-sm font-semibold text-foreground mb-3">Default Sheet Settings</h3>
+                            <div className="border-t border-border pt-4">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Google Sheet (Default)</p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs font-medium text-muted-foreground mb-1">Sheet ID</label>
+                                        <label className="block text-xs font-medium text-muted-foreground mb-1.5">Sheet ID</label>
                                         <input
                                             type="text"
                                             placeholder="e.g. 1BxiM..."
                                             value={sheetId}
                                             onChange={(e) => setSheetId(e.target.value)}
-                                            className="w-full p-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                            className="w-full px-3 py-2.5 text-sm bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-medium text-muted-foreground mb-1">Sheet Name</label>
+                                        <label className="block text-xs font-medium text-muted-foreground mb-1.5">Sheet Name</label>
                                         <input
                                             type="text"
                                             placeholder="Form Responses 1"
                                             value={sheetName}
                                             onChange={(e) => setSheetName(e.target.value)}
-                                            className="w-full p-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                            className="w-full px-3 py-2.5 text-sm bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
                                         />
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="flex flex-col sm:flex-row gap-3 pt-1">
                                 <Button onClick={saveSettings} disabled={savingLink} isLoading={savingLink} className="flex-1">
                                     Save All Settings
                                 </Button>
@@ -817,27 +821,24 @@ export default function ManageEventPage() {
                         </div>
                     </div>
 
-                    {/* Import Participants */}
-                    <div className="bg-card border border-border rounded-xl shadow-sm p-4 sm:p-6">
-                        <h2 className="text-base sm:text-lg font-semibold mb-6 flex items-center gap-2 text-card-foreground">
-                            <FileSpreadsheet className="w-5 h-5 text-green-600" /> Import Participants
-                        </h2>
+                    {/* ② Import Participants */}
+                    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                        <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
+                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-green-500/10 text-green-600 text-xs font-bold">2</span>
+                            <FileSpreadsheet className="w-4 h-4 text-green-600" />
+                            <h2 className="text-sm font-semibold text-card-foreground">Import Participants</h2>
+                        </div>
 
-                        <div className="space-y-6">
+                        <div className="p-5 space-y-5">
                             {/* Google Sheet Sync */}
-                            <div className="bg-green-50/50 border border-green-100 rounded-lg p-5">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="font-semibold text-green-800 flex items-center gap-2">
-                                        Google Sheets Sync
-                                    </h3>
-                                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">Recommended</span>
+                            <div className="bg-green-50/60 border border-green-100 rounded-xl p-5">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="font-semibold text-green-800 text-sm">Google Sheets Sync</h3>
+                                    <span className="text-xs bg-green-200 text-green-800 px-2.5 py-0.5 rounded-full font-semibold">Recommended</span>
                                 </div>
+                                <p className="text-xs text-green-700 mb-4">Uses Sheet ID and Name configured in Event Configuration above.</p>
 
-                                <p className="text-xs text-green-700 mb-4">
-                                    Uses Sheet ID and Name from "Event Configuration" above.
-                                </p>
-
-                                <label className="flex items-center gap-2 text-sm text-foreground mb-4 cursor-pointer">
+                                <label className="flex items-center gap-2.5 text-sm text-foreground mb-4 cursor-pointer select-none">
                                     <input
                                         type="checkbox"
                                         className="rounded border-gray-300 text-green-600 focus:ring-green-500"
@@ -891,7 +892,7 @@ export default function ManageEventPage() {
                                 {autoSendEmails && (
                                     <div className="mt-4 pt-4 border-t border-green-200">
                                         <label className="block text-xs font-semibold text-green-800 mb-2">Token Type for Auto-Send:</label>
-                                        <div className="flex gap-4 mb-2">
+                                        <div className="flex flex-wrap gap-4 mb-2">
                                             <label className="flex items-center gap-2 cursor-pointer">
                                                 <input
                                                     type="radio"
@@ -911,30 +912,27 @@ export default function ManageEventPage() {
                                                 <span className="text-sm text-green-900">Single Meal</span>
                                             </label>
                                         </div>
-
                                         {syncSubType === 'other' && (
-                                            <div>
-                                                <input
-                                                    type="text"
-                                                    placeholder="Meal Name (e.g. Special Dinner)"
-                                                    value={syncMealName}
-                                                    onChange={(e) => setSyncMealName(e.target.value)}
-                                                    className="w-full p-2 bg-white border border-green-200 rounded text-sm focus:border-green-500 focus:outline-none"
-                                                />
-                                            </div>
+                                            <input
+                                                type="text"
+                                                placeholder="Meal Name (e.g. Special Dinner)"
+                                                value={syncMealName}
+                                                onChange={(e) => setSyncMealName(e.target.value)}
+                                                className="w-full px-3 py-2 text-sm bg-white border border-green-200 rounded-lg focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-400"
+                                            />
                                         )}
                                     </div>
                                 )}
                             </div>
 
-                            <div className="relative flex items-center py-2">
+                            <div className="relative flex items-center py-1">
                                 <div className="flex-grow border-t border-border"></div>
-                                <span className="flex-shrink-0 mx-4 text-muted-foreground text-xs uppercase">Or Upload File</span>
+                                <span className="flex-shrink-0 mx-4 text-muted-foreground text-xs uppercase tracking-widest">Or Upload File</span>
                                 <div className="flex-grow border-t border-border"></div>
                             </div>
 
                             {/* File Upload */}
-                            <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:bg-muted/50 transition-colors">
+                            <div className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:bg-muted/40 transition-colors cursor-pointer">
                                 <input
                                     type="file"
                                     accept=".xlsx, .csv"
@@ -942,16 +940,16 @@ export default function ManageEventPage() {
                                     className="hidden"
                                     id="file-upload"
                                 />
-                                <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center">
+                                <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-1">
                                     {file ? (
                                         <>
-                                            <FileSpreadsheet className="text-green-600 w-8 h-8 mb-2" />
-                                            <span className="font-medium text-foreground">{file.name}</span>
+                                            <FileSpreadsheet className="text-green-600 w-8 h-8" />
+                                            <span className="font-medium text-foreground text-sm mt-1">{file.name}</span>
                                         </>
                                     ) : (
                                         <>
-                                            <Upload className="text-muted-foreground w-8 h-8 mb-2" />
-                                            <span className="text-sm text-muted-foreground">Click to upload Excel / CSV</span>
+                                            <Upload className="text-muted-foreground w-8 h-8" />
+                                            <span className="text-sm text-muted-foreground mt-1">Click to upload Excel / CSV</span>
                                         </>
                                     )}
                                 </label>
@@ -959,115 +957,117 @@ export default function ManageEventPage() {
 
                             {file && (
                                 <Button onClick={handleUpload} disabled={uploading} isLoading={uploading} className="w-full">
-                                    Upload & Process
+                                    Upload &amp; Process
                                 </Button>
                             )}
                         </div>
                     </div>
 
-                    {/* Manual Add Participant */}
-                    <div className="bg-card border border-border rounded-xl shadow-sm p-4 sm:p-6">
-                        <h2 className="text-base sm:text-lg font-semibold mb-4 flex items-center gap-2 text-card-foreground">
-                            <UserPlus className="w-5 h-5 text-emerald-500" /> Manual Student Entry
-                        </h2>
-                        <div className="bg-emerald-50/50 border border-emerald-100 rounded-lg p-4 sm:p-5">
-                            <p className="text-sm text-emerald-800 mb-4">
-                                Add a single participant directly to the database. If the email or Roll No exactly matches an existing record, it will update them instead.
-                            </p>
-
-                            <form onSubmit={handleAddParticipant} className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* ③ Manual Student Entry */}
+                    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                        <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
+                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-600 text-xs font-bold">3</span>
+                            <UserPlus className="w-4 h-4 text-emerald-600" />
+                            <h2 className="text-sm font-semibold text-card-foreground">Manual Student Entry</h2>
+                        </div>
+                        <div className="p-5">
+                            <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-4 mb-4">
+                                <p className="text-sm text-emerald-800">
+                                    Add a single participant directly to the database. If the email or Roll No exactly matches an existing record, it will update them instead.
+                                </p>
+                            </div>
+                            <form onSubmit={handleAddParticipant} className="space-y-5">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {[
+                                        { label: 'Full Name *', key: 'name', type: 'text', required: true },
+                                        { label: 'Email Address *', key: 'email', type: 'email', required: true },
+                                        { label: 'Roll No', key: 'rollNo', type: 'text' },
+                                        { label: 'Department', key: 'department', type: 'text' },
+                                        { label: 'Phone', key: 'phone', type: 'text' },
+                                        { label: 'Room No', key: 'roomNo', type: 'text' },
+                                        { label: 'College', key: 'college', type: 'text' },
+                                        { label: 'Year', key: 'year', type: 'text' },
+                                    ].map(({ label, key, type, required }) => (
+                                        <div key={key}>
+                                            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{label}</label>
+                                            <input
+                                                required={required}
+                                                type={type}
+                                                value={(newParticipant as any)[key]}
+                                                onChange={(e) => setNewParticipant({ ...newParticipant, [key]: e.target.value })}
+                                                className="w-full px-3 py-2.5 text-sm bg-background border border-emerald-200 rounded-lg focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                                            />
+                                        </div>
+                                    ))}
                                     <div>
-                                        <label className="block text-xs font-medium text-emerald-900 mb-1">Full Name *</label>
-                                        <input required type="text" value={newParticipant.name} onChange={(e) => setNewParticipant({ ...newParticipant, name: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-emerald-900 mb-1">Email Address *</label>
-                                        <input required type="email" value={newParticipant.email} onChange={(e) => setNewParticipant({ ...newParticipant, email: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-emerald-900 mb-1">Roll No (Recommended)</label>
-                                        <input type="text" value={newParticipant.rollNo} onChange={(e) => setNewParticipant({ ...newParticipant, rollNo: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-emerald-900 mb-1">Department</label>
-                                        <input type="text" value={newParticipant.department} onChange={(e) => setNewParticipant({ ...newParticipant, department: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-emerald-900 mb-1">Phone</label>
-                                        <input type="text" value={newParticipant.phone} onChange={(e) => setNewParticipant({ ...newParticipant, phone: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-emerald-900 mb-1">Food Preference</label>
-                                        <select value={newParticipant.foodPreference} onChange={(e) => setNewParticipant({ ...newParticipant, foodPreference: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Food Preference</label>
+                                        <select
+                                            value={newParticipant.foodPreference}
+                                            onChange={(e) => setNewParticipant({ ...newParticipant, foodPreference: e.target.value })}
+                                            className="w-full px-3 py-2.5 text-sm bg-background border border-emerald-200 rounded-lg focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                                        >
                                             <option value="Veg">Veg</option>
                                             <option value="Non Veg">Non-Veg</option>
                                         </select>
                                     </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-emerald-900 mb-1">Room No (Optional)</label>
-                                        <input type="text" value={newParticipant.roomNo} onChange={(e) => setNewParticipant({ ...newParticipant, roomNo: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-emerald-900 mb-1">College (Optional)</label>
-                                        <input type="text" value={newParticipant.college} onChange={(e) => setNewParticipant({ ...newParticipant, college: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-emerald-900 mb-1">Year (Optional)</label>
-                                        <input type="text" value={newParticipant.year} onChange={(e) => setNewParticipant({ ...newParticipant, year: e.target.value })} className="w-full p-2 bg-white border border-emerald-200 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
-                                    </div>
                                 </div>
-
-                                <div className="pt-2 flex justify-end">
-                                    <Button type="submit" disabled={addingParticipant || !newParticipant.name || !newParticipant.email} isLoading={addingParticipant} className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto">
-                                        <UserPlus className="w-4 h-4 mr-2" /> Add Participant manually
+                                <div className="flex justify-end pt-1">
+                                    <Button
+                                        type="submit"
+                                        disabled={addingParticipant || !newParticipant.name || !newParticipant.email}
+                                        isLoading={addingParticipant}
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                    >
+                                        <UserPlus className="w-4 h-4 mr-2" /> Add Participant
                                     </Button>
                                 </div>
                             </form>
                         </div>
                     </div>
 
-                    {/* Manual Email Sender */}
-                    <div className="bg-card border border-border rounded-xl shadow-sm p-4 sm:p-6">
-                        <h2 className="text-base sm:text-lg font-semibold mb-4 flex items-center gap-2 text-card-foreground">
-                            <Mail className="w-5 h-5 text-indigo-500" /> Manual Target Email Sender
-                        </h2>
-                        <div className="bg-indigo-50/50 border border-indigo-100 rounded-lg p-4 sm:p-5">
-                            <p className="text-sm text-indigo-800 mb-4">
-                                If a participant was skipped or modified, search their Roll No to send their email individually.
-                            </p>
+                    {/* ④ Manual Email Sender */}
+                    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                        <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
+                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-500/10 text-indigo-600 text-xs font-bold">4</span>
+                            <Mail className="w-4 h-4 text-indigo-500" />
+                            <h2 className="text-sm font-semibold text-card-foreground">Manual Target Email Sender</h2>
+                        </div>
+                        <div className="p-5">
+                            <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-4 mb-4">
+                                <p className="text-sm text-indigo-800">
+                                    Search a student&apos;s Roll No to re-send their invitation email individually.
+                                </p>
+                            </div>
 
                             <div className="flex gap-2 mb-4">
                                 <div className="relative flex-1">
-                                    <Search className="absolute left-3 top-2.5 text-muted-foreground w-4 h-4" />
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
                                     <input
                                         type="text"
                                         placeholder="Enter Roll No"
                                         value={manualRollNo}
                                         onChange={(e) => setManualRollNo(e.target.value.toUpperCase())}
                                         onKeyDown={(e) => e.key === 'Enter' && handleSearchManualStudent()}
-                                        className="w-full pl-9 p-2 bg-background border border-input rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                        className="w-full pl-9 pr-3 py-2.5 text-sm bg-background border border-input rounded-lg focus:ring-2 focus:ring-indigo-400 focus:outline-none"
                                     />
                                 </div>
                                 <Button
                                     onClick={handleSearchManualStudent}
                                     disabled={searchingManualStudent || !manualRollNo}
                                     isLoading={searchingManualStudent}
-                                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-5"
                                 >
                                     Search
                                 </Button>
                             </div>
 
                             {manualStudent && (
-                                <div className="border border-indigo-200 bg-white p-4 rounded-lg animate-in zoom-in-95">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div>
-                                            <h4 className="font-bold text-indigo-900">{manualStudent.name}</h4>
-                                            <p className="text-xs text-muted-foreground">{manualStudent.rollNo} • {manualStudent.department}</p>
-                                        </div>
+                                <div className="border border-indigo-200 bg-white p-4 rounded-xl animate-in zoom-in-95">
+                                    <div className="mb-3">
+                                        <h4 className="font-bold text-indigo-900 text-sm">{manualStudent.name}</h4>
+                                        <p className="text-xs text-muted-foreground">{manualStudent.rollNo} &bull; {manualStudent.department}</p>
                                     </div>
-                                    <div className="mb-4">
+                                    <div className="mb-4 space-y-1">
                                         <p className="text-sm"><span className="font-medium">Email:</span> {manualStudent.email || 'Not provided'}</p>
                                         <p className="text-sm"><span className="font-medium">Status:</span> {manualStudent.status}</p>
                                     </div>
@@ -1087,27 +1087,30 @@ export default function ManageEventPage() {
                         </div>
                     </div>
 
-                    {/* Real-Time Sync (Apps Script) */}
-                    <div className="bg-card border border-border rounded-xl shadow-sm p-4 sm:p-6">
-                        <h2 className="text-base sm:text-lg font-semibold mb-4 flex items-center gap-2 text-card-foreground">
-                            <Code className="w-5 h-5 text-amber-600" /> Real-Time Sync (Google Apps Script)
-                        </h2>
-                        <div className="bg-amber-50/50 border border-amber-100 rounded-lg p-3 sm:p-5">
-                            <p className="text-sm text-amber-800 mb-4">
-                                To get real-time updates from your restricted Google Sheet, add the provided script to your sheet and configure these values:
-                            </p>
-
+                    {/* ⑤ Real-Time Sync (Apps Script) */}
+                    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                        <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
+                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/10 text-amber-600 text-xs font-bold">5</span>
+                            <Code className="w-4 h-4 text-amber-600" />
+                            <h2 className="text-sm font-semibold text-card-foreground">Real-Time Sync (Google Apps Script)</h2>
+                        </div>
+                        <div className="p-5">
+                            <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-4 mb-5">
+                                <p className="text-sm text-amber-800">
+                                    To get real-time updates from your Google Sheet, add the provided script and configure these values:
+                                </p>
+                            </div>
                             <div className="space-y-4">
                                 <div>
-                                    <label className="text-xs font-semibold text-amber-900 uppercase tracking-wider">Webhook URL</label>
-                                    <div className="flex gap-2 mt-1">
-                                        <code className="flex-1 p-2 bg-white border border-amber-200 rounded text-xs font-mono text-amber-800 overflow-x-auto whitespace-nowrap">
+                                    <label className="text-xs font-semibold text-amber-900 uppercase tracking-wider block mb-1.5">Webhook URL</label>
+                                    <div className="flex gap-2">
+                                        <code className="flex-1 px-3 py-2 bg-white border border-amber-200 rounded-lg text-xs font-mono text-amber-800 overflow-x-auto whitespace-nowrap">
                                             {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/participants` : '/api/webhooks/participants'}
                                         </code>
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            className="h-auto border-amber-200 hover:bg-amber-100 text-amber-800"
+                                            className="shrink-0 border-amber-200 hover:bg-amber-100 text-amber-800"
                                             onClick={() => {
                                                 if (typeof window !== 'undefined') {
                                                     navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/participants`);
@@ -1119,17 +1122,16 @@ export default function ManageEventPage() {
                                         </Button>
                                     </div>
                                 </div>
-
                                 <div>
-                                    <label className="text-xs font-semibold text-amber-900 uppercase tracking-wider">Event ID</label>
-                                    <div className="flex gap-2 mt-1">
-                                        <code className="flex-1 p-2 bg-white border border-amber-200 rounded text-xs font-mono text-amber-800">
+                                    <label className="text-xs font-semibold text-amber-900 uppercase tracking-wider block mb-1.5">Event ID</label>
+                                    <div className="flex gap-2">
+                                        <code className="flex-1 px-3 py-2 bg-white border border-amber-200 rounded-lg text-xs font-mono text-amber-800">
                                             {eventId}
                                         </code>
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            className="h-auto border-amber-200 hover:bg-amber-100 text-amber-800"
+                                            className="shrink-0 border-amber-200 hover:bg-amber-100 text-amber-800"
                                             onClick={() => {
                                                 navigator.clipboard.writeText(eventId);
                                                 setStatus({ type: 'success', msg: 'Event ID copied!' });
@@ -1144,93 +1146,96 @@ export default function ManageEventPage() {
                     </div>
                 </div>
 
-                {/* Right Column: Actions & Coordinators */}
-                <div className="space-y-6">
+                {/* ── Right Column (Sticky) ── */}
+                <div className="space-y-5 xl:sticky xl:top-4 xl:self-start">
                     {/* Coordinator Management */}
-                    <div className="bg-card border border-border rounded-xl shadow-sm p-6">
-                        <h2 className="text-lg font-semibold mb-6 flex items-center gap-2 text-card-foreground">
-                            <Users className="w-5 h-5 text-blue-600" /> Event Coordinators
-                        </h2>
-
-                        {/* Add Coordinator */}
-                        <div className="space-y-4 mb-8">
-                            <label className="block text-sm font-medium text-muted-foreground">Add Coordinator</label>
-                            <div className="flex gap-2">
-                                <div className="relative flex-1">
-                                    <Search className="absolute left-3 top-2.5 text-muted-foreground w-4 h-4" />
-                                    <input
-                                        type="text"
-                                        placeholder="Enter Roll No"
-                                        value={searchRollNo}
-                                        onChange={(e) => setSearchRollNo(e.target.value.toUpperCase())}
-                                        className="w-full pl-9 p-2 bg-background border border-input rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSearchCoordinator()}
-                                    />
-                                </div>
-                                <Button
-                                    onClick={handleSearchCoordinator}
-                                    disabled={searchingUser || !searchRollNo}
-                                    isLoading={searchingUser}
-                                    variant="outline"
-                                    size="sm"
-                                >
-                                    Find
-                                </Button>
-                            </div>
-
-                            {foundUser && (
-                                <div className={`border p-3 rounded-lg flex items-center justify-between animate-in fade-in ${foundUser.source === 'participant' ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-100'
-                                    }`}>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <p className={`text-sm font-bold ${foundUser.source === 'participant' ? 'text-amber-900' : 'text-blue-900'
-                                                }`}>{foundUser.rollNo}</p>
-                                            {foundUser.source === 'participant' && (
-                                                <span className="text-[10px] bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-full font-medium">
-                                                    From Sheet
-                                                </span>
-                                            )}
-                                        </div>
-                                        <p className={`text-xs ${foundUser.source === 'participant' ? 'text-amber-700' : 'text-blue-700'
-                                            }`}>
-                                            {foundUser.name ? `${foundUser.name} • ` : ''}{selectedDepartment || foundUser.department}
-                                        </p>
-
-                                        {/* Department Selector for Participants (since it might be missing or UNKNOWN) */}
-                                        {foundUser.source === 'participant' && (
-                                            <div className="mt-2">
-                                                <select
-                                                    value={selectedDepartment}
-                                                    onChange={(e) => setSelectedDepartment(e.target.value)}
-                                                    className="text-xs p-1 border rounded bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                                                >
-                                                    <option value="">Select Dept</option>
-                                                    {DEPARTMENTS.map(dept => (
-                                                        <option key={dept} value={dept}>{dept}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <Button
-                                        size="sm"
-                                        onClick={handleAddCoordinator}
-                                        disabled={addingCoordinator}
-                                        isLoading={addingCoordinator}
-                                        className={`h-8 ${foundUser.source === 'participant'
-                                            ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                                            : 'bg-blue-600 hover:bg-blue-700'
-                                            }`}
-                                    >
-                                        {foundUser.source === 'participant' ? 'Create & Add' : 'Add'}
-                                    </Button>
-                                </div>
-                            )}
+                    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                        <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
+                            <Users className="w-4 h-4 text-blue-600" />
+                            <h2 className="text-sm font-semibold text-card-foreground">Event Coordinators</h2>
                         </div>
 
+                        <div className="p-5">
+                            {/* Add Coordinator */}
+                            <div className="space-y-3 mb-6">
+                                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Coordinator by Roll No</label>
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                                        <input
+                                            type="text"
+                                            placeholder="Enter Roll No"
+                                            value={searchRollNo}
+                                            onChange={(e) => setSearchRollNo(e.target.value.toUpperCase())}
+                                            className="w-full pl-9 pr-3 py-2.5 text-sm bg-background border border-input rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                            onKeyDown={(e) => e.key === 'Enter' && handleSearchCoordinator()}
+                                        />
+                                    </div>
+                                    <Button
+                                        onClick={handleSearchCoordinator}
+                                        disabled={searchingUser || !searchRollNo}
+                                        isLoading={searchingUser}
+                                        variant="outline"
+                                        size="sm"
+                                    >
+                                        Find
+                                    </Button>
+                                </div>
+
+                                {foundUser && (
+                                    <div className={`border p-3 rounded-lg flex items-center justify-between animate-in fade-in ${foundUser.source === 'participant' ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-100'
+                                        }`}>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <p className={`text-sm font-bold ${foundUser.source === 'participant' ? 'text-amber-900' : 'text-blue-900'
+                                                    }`}>{foundUser.rollNo}</p>
+                                                {foundUser.source === 'participant' && (
+                                                    <span className="text-[10px] bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-full font-medium">
+                                                        From Sheet
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className={`text-xs ${foundUser.source === 'participant' ? 'text-amber-700' : 'text-blue-700'
+                                                }`}>
+                                                {foundUser.name ? `${foundUser.name} • ` : ''}{selectedDepartment || foundUser.department}
+                                            </p>
+
+                                            {/* Department Selector for Participants (since it might be missing or UNKNOWN) */}
+                                            {foundUser.source === 'participant' && (
+                                                <div className="mt-2">
+                                                    <select
+                                                        value={selectedDepartment}
+                                                        onChange={(e) => setSelectedDepartment(e.target.value)}
+                                                        className="text-xs p-1 border rounded bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                                    >
+                                                        <option value="">Select Dept</option>
+                                                        {DEPARTMENTS.map(dept => (
+                                                            <option key={dept} value={dept}>{dept}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            onClick={handleAddCoordinator}
+                                            disabled={addingCoordinator}
+                                            isLoading={addingCoordinator}
+                                            className={`h-8 ${foundUser.source === 'participant'
+                                                ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                                                : 'bg-blue-600 hover:bg-blue-700'
+                                                }`}
+                                        >
+                                            {foundUser.source === 'participant' ? 'Create & Add' : 'Add'}
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+
+                        </div>
                         {/* Coordinator List */}
-                        <div className="space-y-4">
-                            <h3 className="text-sm font-semibold text-foreground">Assigned Coordinators</h3>
+                        <div className="space-y-3">
+                            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Assigned Coordinators</h3>
                             {fetchingCoordinators ? (
                                 <div className="text-center py-4 text-muted-foreground text-sm">Loading...</div>
                             ) : coordinators.length === 0 ? (
@@ -1313,124 +1318,125 @@ export default function ManageEventPage() {
                         </div>
                     </div>
 
-                    <div className="bg-card border border-border rounded-xl shadow-sm p-6">
-                        <h2 className="text-lg font-semibold mb-6 flex items-center gap-2 text-card-foreground">
-                            <Mail className="w-5 h-5 text-purple-600" /> Actions
-                        </h2>
-
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-foreground mb-2">Token Type</label>
-                                <div className="space-y-2">
-                                    <label className="flex items-center gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition">
-                                        <input
-                                            type="radio"
-                                            name="hostelSubType"
-                                            checked={hostelSubType === 'hostel_day'}
-                                            onChange={() => setHostelSubType('hostel_day')}
-                                            className="text-purple-600 focus:ring-purple-500"
-                                        />
-                                        <span className="text-sm">Hostel Day (5 Meals)</span>
-                                    </label>
-                                    <label className="flex items-center gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition">
-                                        <input
-                                            type="radio"
-                                            name="hostelSubType"
-                                            checked={hostelSubType === 'other'}
-                                            onChange={() => setHostelSubType('other')}
-                                            className="text-purple-600 focus:ring-purple-500"
-                                        />
-                                        <span className="text-sm">Other (Single Meal)</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            {hostelSubType === 'other' && (
+                    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                        <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
+                            <Mail className="w-4 h-4 text-purple-600" />
+                            <h2 className="text-sm font-semibold text-card-foreground">Send Token Emails</h2>
+                        </div>
+                        <div className="p-5">
+                            <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-muted-foreground mb-1.5">Meal Name</label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g. Special Dinner"
-                                        value={customMealName}
-                                        onChange={(e) => setCustomMealName(e.target.value)}
-                                        className="w-full p-2.5 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    />
-                                </div>
-                            )}
-
-                            <Button
-                                onClick={async () => {
-                                    if (hostelSubType === 'other' && !customMealName.trim()) {
-                                        setStatus({ type: 'error', msg: 'Please enter a meal name.' });
-                                        return;
-                                    }
-                                    setUploading(true);
-                                    setStatus({ type: '', msg: '' });
-                                    setEmailProgress(null);
-                                    setEmailErrors([]);
-
-                                    const { success, failed } = await runEmailBatchSequence(hostelSubType, customMealName);
-
-                                    setUploading(false);
-                                    if (success > 0 || failed > 0) {
-                                        setStatus({ type: 'success', msg: `Batch sequence completed. Sent: ${success}, Failed: ${failed}` });
-                                    } else {
-                                        setStatus({ type: 'error', msg: 'No pending emails were found or processed.' });
-                                    }
-
-                                    // Let the progress UI persist for a moment or until cleared by status
-                                    setEmailProgress({
-                                        total: success + failed,
-                                        processed: success + failed,
-                                        success: success,
-                                        failed: failed
-                                    });
-                                }}
-                                disabled={uploading}
-                                isLoading={uploading}
-                                className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-                            >
-                                {uploading ? 'Sending...' : 'Send Token Emails'}
-                            </Button>
-
-                            {emailProgress && (
-                                <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-100 animate-in fade-in slide-in-from-top-2">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <span className="text-sm font-semibold text-purple-900">Sending Emails...</span>
-                                        <span className="text-xs font-mono text-purple-700">
-                                            {emailProgress.processed} / {emailProgress.total}
-                                        </span>
-                                    </div>
-                                    <div className="w-full bg-purple-200 rounded-full h-2.5 mb-2 overflow-hidden">
-                                        <div
-                                            className="bg-purple-600 h-2.5 rounded-full transition-all duration-300 ease-out"
-                                            style={{ width: `${(emailProgress.processed / Math.max(emailProgress.total, 1)) * 100}%` }}
-                                        ></div>
-                                    </div>
-                                    <div className="flex justify-between text-xs text-purple-600">
-                                        <span className="text-green-600 font-medium">Success: {emailProgress.success}</span>
-                                        <span className="text-red-500 font-medium">Failed: {emailProgress.failed}</span>
-                                    </div>
-                                </div>
-                            )}
-
-                            {emailErrors.length > 0 && (
-                                <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg max-h-48 overflow-y-auto">
-                                    <h4 className="text-xs font-bold text-red-700 uppercase mb-2">Error Details</h4>
+                                    <label className="block text-sm font-medium text-foreground mb-2">Token Type</label>
                                     <div className="space-y-2">
-                                        {emailErrors.map((err, i) => (
-                                            <div key={i} className="text-[10px] text-red-600 font-mono bg-white p-2 rounded border border-red-50 leading-relaxed">
-                                                {err}
-                                            </div>
-                                        ))}
+                                        <label className="flex items-center gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition">
+                                            <input
+                                                type="radio"
+                                                name="hostelSubType"
+                                                checked={hostelSubType === 'hostel_day'}
+                                                onChange={() => setHostelSubType('hostel_day')}
+                                                className="text-purple-600 focus:ring-purple-500"
+                                            />
+                                            <span className="text-sm">Hostel Day (5 Meals)</span>
+                                        </label>
+                                        <label className="flex items-center gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition">
+                                            <input
+                                                type="radio"
+                                                name="hostelSubType"
+                                                checked={hostelSubType === 'other'}
+                                                onChange={() => setHostelSubType('other')}
+                                                className="text-purple-600 focus:ring-purple-500"
+                                            />
+                                            <span className="text-sm">Other (Single Meal)</span>
+                                        </label>
                                     </div>
                                 </div>
-                            )}
+
+                                {hostelSubType === 'other' && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-muted-foreground mb-1.5">Meal Name</label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. Special Dinner"
+                                            value={customMealName}
+                                            onChange={(e) => setCustomMealName(e.target.value)}
+                                            className="w-full p-2.5 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        />
+                                    </div>
+                                )}
+
+                                <Button
+                                    onClick={async () => {
+                                        if (hostelSubType === 'other' && !customMealName.trim()) {
+                                            setStatus({ type: 'error', msg: 'Please enter a meal name.' });
+                                            return;
+                                        }
+                                        setUploading(true);
+                                        setStatus({ type: '', msg: '' });
+                                        setEmailProgress(null);
+                                        setEmailErrors([]);
+
+                                        const { success, failed } = await runEmailBatchSequence(hostelSubType, customMealName);
+
+                                        setUploading(false);
+                                        if (success > 0 || failed > 0) {
+                                            setStatus({ type: 'success', msg: `Batch sequence completed. Sent: ${success}, Failed: ${failed}` });
+                                        } else {
+                                            setStatus({ type: 'error', msg: 'No pending emails were found or processed.' });
+                                        }
+
+                                        // Let the progress UI persist for a moment or until cleared by status
+                                        setEmailProgress({
+                                            total: success + failed,
+                                            processed: success + failed,
+                                            success: success,
+                                            failed: failed
+                                        });
+                                    }}
+                                    disabled={uploading}
+                                    isLoading={uploading}
+                                    className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                                >
+                                    {uploading ? 'Sending...' : 'Send Token Emails'}
+                                </Button>
+
+                                {emailProgress && (
+                                    <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-100 animate-in fade-in slide-in-from-top-2">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-sm font-semibold text-purple-900">Sending Emails...</span>
+                                            <span className="text-xs font-mono text-purple-700">
+                                                {emailProgress.processed} / {emailProgress.total}
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-purple-200 rounded-full h-2.5 mb-2 overflow-hidden">
+                                            <div
+                                                className="bg-purple-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                                                style={{ width: `${(emailProgress.processed / Math.max(emailProgress.total, 1)) * 100}%` }}
+                                            ></div>
+                                        </div>
+                                        <div className="flex justify-between text-xs text-purple-600">
+                                            <span className="text-green-600 font-medium">Success: {emailProgress.success}</span>
+                                            <span className="text-red-500 font-medium">Failed: {emailProgress.failed}</span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {emailErrors.length > 0 && (
+                                    <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg max-h-48 overflow-y-auto">
+                                        <h4 className="text-xs font-bold text-red-700 uppercase mb-2">Error Details</h4>
+                                        <div className="space-y-2">
+                                            {emailErrors.map((err, i) => (
+                                                <div key={i} className="text-[10px] text-red-600 font-mono bg-white p-2 rounded border border-red-50 leading-relaxed">
+                                                    {err}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div >
+        </div>
     );
 }
