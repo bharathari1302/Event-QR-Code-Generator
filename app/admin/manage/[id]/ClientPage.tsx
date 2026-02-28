@@ -16,6 +16,7 @@ import {
     Loader2,
     UserPlus,
     Users,
+    User,
     Trash2,
     Search,
     Code,
@@ -1256,8 +1257,8 @@ export default function ManageEventPage() {
                                             <div key={c.id} className="border border-border rounded-xl overflow-hidden bg-background shadow-sm">
                                                 {/* Coordinator Header */}
                                                 <div className="flex items-center gap-3 px-4 py-3 bg-muted/20">
-                                                    <div className="flex items-center justify-center w-9 h-9 rounded-full bg-blue-100 text-blue-700 font-bold text-xs shrink-0">
-                                                        {initials}
+                                                    <div className="flex items-center justify-center w-9 h-9 rounded-full bg-blue-100 text-blue-600 shrink-0">
+                                                        <User className="w-4 h-4" />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <p className="font-bold text-sm text-foreground leading-tight">{c.rollNo}</p>
