@@ -62,14 +62,15 @@ export default function ManageEventPage() {
     interface ProgressState { current: number; total: number; success: number; failed: number; }
     const [progress, setProgress] = useState<ProgressState>({ current: 0, total: 1, success: 0, failed: 0 });
 
-    // PDF Generation State (Only Hostel/Meal supported now)
-    const [pdfPurpose, setPdfPurpose] = useState<'hostel'>('hostel'); // Forced to hostel
-    const [hostelSubType, setHostelSubType] = useState<'hostel_day' | 'other'>('hostel_day');
-    const [customMealName, setCustomMealName] = useState('');
+    // Email Batch Sequence State (replaces hostelSubType)
+    const [emailSelectedMeals, setEmailSelectedMeals] = useState<string[]>(['Breakfast', 'Lunch', 'Snacks', 'Dinner', 'Ice Cream']);
+    const [emailCustomMeal, setEmailCustomMeal] = useState('');
+    const [emailShowCustom, setEmailShowCustom] = useState(false);
 
     // Sync Specific Token Settings
-    const [syncSubType, setSyncSubType] = useState<'hostel_day' | 'other'>('hostel_day');
-    const [syncMealName, setSyncMealName] = useState('');
+    const [syncSelectedMeals, setSyncSelectedMeals] = useState<string[]>(['Breakfast', 'Lunch', 'Snacks', 'Dinner', 'Ice Cream']);
+    const [syncCustomMeal, setSyncCustomMeal] = useState('');
+    const [syncShowCustom, setSyncShowCustom] = useState(false);
 
     // Manual Email Trigger State
     const [manualRollNo, setManualRollNo] = useState('');
@@ -125,9 +126,14 @@ export default function ManageEventPage() {
                     if (data.name) setEventName(data.name);
                     if (data.sub_event_name) setSubEventName(data.sub_event_name);
 
-                    // Sync Settings
-                    if (data.syncSubType) setSyncSubType(data.syncSubType);
-                    if (data.syncMealName) setSyncMealName(data.syncMealName);
+                    // Sync Settings (legacy support mapped to new state)
+                    if (data.syncSubType === 'other' && data.syncMealName) {
+                        setSyncSelectedMeals([]);
+                        setSyncCustomMeal(data.syncMealName);
+                        setSyncShowCustom(true);
+                    } else if (data.syncSubType === 'hostel_day') {
+                        setSyncSelectedMeals(['Breakfast', 'Lunch', 'Snacks', 'Dinner', 'Ice Cream']);
+                    }
                 })
                 .catch(err => console.error('Failed to fetch event details', err));
 
@@ -326,6 +332,11 @@ export default function ManageEventPage() {
         setSavingLink(true);
         setStatus({ type: '', msg: '' });
 
+        const finalSyncMeals = [...syncSelectedMeals];
+        if (syncShowCustom && syncCustomMeal.trim() && !finalSyncMeals.includes(syncCustomMeal.trim())) {
+            finalSyncMeals.push(syncCustomMeal.trim());
+        }
+
         try {
             const res = await fetch('/api/events/update', {
                 method: 'POST',
@@ -336,8 +347,7 @@ export default function ManageEventPage() {
                     subEventName,
                     googleSheetId: sheetId,
                     googleSheetName: sheetName,
-                    syncSubType,
-                    syncMealName
+                    syncMealName: finalSyncMeals.join(', ')
                 })
             });
             const data = await res.json();
@@ -394,7 +404,7 @@ export default function ManageEventPage() {
     };
 
     // --- EMAIL BATCH SEQUENCE ---
-    const runEmailBatchSequence = async (subType: string, mealName: string) => {
+    const runEmailBatchSequence = async (selectedMeals: string[]) => {
         let hasMore = true;
         let cumulativeSuccess = 0;
         let cumulativeFailed = 0;
@@ -413,8 +423,7 @@ export default function ManageEventPage() {
                         body: JSON.stringify({
                             eventId,
                             pdfPurpose: 'hostel',
-                            hostelSubType: subType,
-                            customMealName: mealName
+                            selectedMeals
                         })
                     });
 
@@ -495,12 +504,18 @@ export default function ManageEventPage() {
 
     const handleSheetSync = async () => {
         if (!sheetId) {
-            setStatus({ type: 'error', msg: 'Please enter a Google Sheet ID.' });
+            setStatus({ type: 'error', msg: 'Please configure a Sheet ID in Event Configuration first.' });
             return;
         }
 
-        if (autoSendEmails && syncSubType === 'other' && !syncMealName.trim()) {
-            setStatus({ type: 'error', msg: 'Please enter a Meal Name for the auto-send tokens.' });
+        // Combine selected predefined meals + custom meal input
+        const finalSyncMeals = [...syncSelectedMeals];
+        if (syncShowCustom && syncCustomMeal.trim() && !finalSyncMeals.includes(syncCustomMeal.trim())) {
+            finalSyncMeals.push(syncCustomMeal.trim());
+        }
+
+        if (autoSendEmails && finalSyncMeals.length === 0) {
+            setStatus({ type: 'error', msg: 'Please select at least one meal/token type for the auto-send tokens.' });
             return;
         }
 
@@ -518,8 +533,8 @@ export default function ManageEventPage() {
                     sheetName, // Optional
                     eventId,
                     eventName,
-                    syncSubType,
-                    syncMealName
+                    syncSubType: 'hostel_day', // legacy
+                    syncMealName: finalSyncMeals.join(', ') // Save selected meals as string for reference
                 })
             });
 
@@ -545,7 +560,7 @@ export default function ManageEventPage() {
                     setStatus({ type: 'success', msg: `${successMsg} Sending emails...` });
                     setEmailProgress({ total: count, processed: 0, success: 0, failed: 0 }); // Initial estimate
 
-                    const { success, failed } = await runEmailBatchSequence(syncSubType, syncMealName);
+                    const { success, failed } = await runEmailBatchSequence(finalSyncMeals);
                     successMsg += ` ✉ Sent: ${success}, Failed: ${failed}.`;
 
                     // Keep final email progress visible
@@ -595,15 +610,19 @@ export default function ManageEventPage() {
         setSendingManualEmail(true);
         setStatus({ type: '', msg: '' });
 
+        // Combine selected predefined meals + custom meal input for manual send
+        const finalManualSendMeals = [...syncSelectedMeals];
+        if (syncShowCustom && syncCustomMeal.trim() && !finalManualSendMeals.includes(syncCustomMeal.trim())) {
+            finalManualSendMeals.push(syncCustomMeal.trim());
+        }
+
         try {
             const res = await fetch('/api/email/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     eventId,
-                    pdfPurpose: 'hostel',
-                    hostelSubType: syncSubType,
-                    customMealName: syncMealName,
+                    selectedMeals: finalManualSendMeals,
                     targetRollNo: manualStudent.rollNo
                 })
             });
@@ -894,32 +913,37 @@ export default function ManageEventPage() {
                                     <div className="mt-4 pt-4 border-t border-green-200">
                                         <label className="block text-xs font-semibold text-green-800 mb-2">Token Type for Auto-Send:</label>
                                         <div className="flex flex-wrap gap-4 mb-2">
-                                            <label className="flex items-center gap-2 cursor-pointer">
+                                            {['Breakfast', 'Lunch', 'Snacks', 'Dinner', 'Ice Cream'].map(meal => (
+                                                <label key={meal} className="flex items-center gap-2 cursor-pointer bg-white border border-green-200 px-3 py-1.5 rounded-lg hover:border-green-400">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="rounded text-green-600 focus:ring-green-500 w-4 h-4 cursor-pointer"
+                                                        checked={syncSelectedMeals.includes(meal)}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) setSyncSelectedMeals([...syncSelectedMeals, meal]);
+                                                            else setSyncSelectedMeals(syncSelectedMeals.filter(m => m !== meal));
+                                                        }}
+                                                    />
+                                                    <span className="text-sm text-green-900 font-medium">{meal}</span>
+                                                </label>
+                                            ))}
+                                            <label className="flex items-center gap-2 cursor-pointer bg-white border border-green-200 px-3 py-1.5 rounded-lg hover:border-green-400">
                                                 <input
-                                                    type="radio"
-                                                    className="rounded-full text-green-600 focus:ring-green-500"
-                                                    checked={syncSubType === 'hostel_day'}
-                                                    onChange={() => setSyncSubType('hostel_day')}
+                                                    type="checkbox"
+                                                    className="rounded text-green-600 focus:ring-green-500 w-4 h-4 cursor-pointer"
+                                                    checked={syncShowCustom}
+                                                    onChange={(e) => setSyncShowCustom(e.target.checked)}
                                                 />
-                                                <span className="text-sm text-green-900">Hostel Day (5 Meals)</span>
-                                            </label>
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input
-                                                    type="radio"
-                                                    className="rounded-full text-green-600 focus:ring-green-500"
-                                                    checked={syncSubType === 'other'}
-                                                    onChange={() => setSyncSubType('other')}
-                                                />
-                                                <span className="text-sm text-green-900">Single Meal</span>
+                                                <span className="text-sm text-green-900 font-medium">Add meal</span>
                                             </label>
                                         </div>
-                                        {syncSubType === 'other' && (
+                                        {syncShowCustom && (
                                             <input
                                                 type="text"
-                                                placeholder="Meal Name (e.g. Special Dinner)"
-                                                value={syncMealName}
-                                                onChange={(e) => setSyncMealName(e.target.value)}
-                                                className="w-full px-3 py-2 text-sm bg-white border border-green-200 rounded-lg focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-400"
+                                                placeholder="Extra/New Meal Name (e.g. Special Dinner)"
+                                                value={syncCustomMeal}
+                                                onChange={(e) => setSyncCustomMeal(e.target.value)}
+                                                className="w-full mt-2 px-3 py-2 text-sm bg-white border border-green-200 rounded-lg focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-400"
                                             />
                                         )}
                                     </div>
@@ -1343,39 +1367,42 @@ export default function ManageEventPage() {
                         <div className="p-5">
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-foreground mb-2">Token Type</label>
-                                    <div className="space-y-2">
-                                        <label className="flex items-center gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition">
+                                    <label className="block text-sm font-medium text-foreground mb-2">Select Token Types for Batch</label>
+                                    <div className="flex flex-wrap gap-3">
+                                        {['Breakfast', 'Lunch', 'Snacks', 'Dinner', 'Ice Cream'].map(meal => (
+                                            <label key={meal} className="flex items-center gap-2 p-2 px-3 bg-muted/20 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={emailSelectedMeals.includes(meal)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) setEmailSelectedMeals([...emailSelectedMeals, meal]);
+                                                        else setEmailSelectedMeals(emailSelectedMeals.filter(m => m !== meal));
+                                                    }}
+                                                    className="rounded text-purple-600 focus:ring-purple-500 w-4 h-4"
+                                                />
+                                                <span className="text-sm font-medium">{meal}</span>
+                                            </label>
+                                        ))}
+                                        <label className="flex items-center gap-2 p-2 px-3 bg-muted/20 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition">
                                             <input
-                                                type="radio"
-                                                name="hostelSubType"
-                                                checked={hostelSubType === 'hostel_day'}
-                                                onChange={() => setHostelSubType('hostel_day')}
-                                                className="text-purple-600 focus:ring-purple-500"
+                                                type="checkbox"
+                                                checked={emailShowCustom}
+                                                onChange={(e) => setEmailShowCustom(e.target.checked)}
+                                                className="rounded text-purple-600 focus:ring-purple-500 w-4 h-4"
                                             />
-                                            <span className="text-sm">Hostel Day (5 Meals)</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition">
-                                            <input
-                                                type="radio"
-                                                name="hostelSubType"
-                                                checked={hostelSubType === 'other'}
-                                                onChange={() => setHostelSubType('other')}
-                                                className="text-purple-600 focus:ring-purple-500"
-                                            />
-                                            <span className="text-sm">Other (Single Meal)</span>
+                                            <span className="text-sm font-medium">Add meal</span>
                                         </label>
                                     </div>
                                 </div>
 
-                                {hostelSubType === 'other' && (
+                                {emailShowCustom && (
                                     <div>
-                                        <label className="block text-sm font-medium text-muted-foreground mb-1.5">Meal Name</label>
+                                        <label className="block text-sm font-medium text-muted-foreground mb-1.5">Extra/New Meal Name</label>
                                         <input
                                             type="text"
                                             placeholder="e.g. Special Dinner"
-                                            value={customMealName}
-                                            onChange={(e) => setCustomMealName(e.target.value)}
+                                            value={emailCustomMeal}
+                                            onChange={(e) => setEmailCustomMeal(e.target.value)}
                                             className="w-full p-2.5 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                                         />
                                     </div>
@@ -1383,16 +1410,22 @@ export default function ManageEventPage() {
 
                                 <Button
                                     onClick={async () => {
-                                        if (hostelSubType === 'other' && !customMealName.trim()) {
-                                            setStatus({ type: 'error', msg: 'Please enter a meal name.' });
+                                        const finalEmailMeals = [...emailSelectedMeals];
+                                        if (emailShowCustom && emailCustomMeal.trim() && !finalEmailMeals.includes(emailCustomMeal.trim())) {
+                                            finalEmailMeals.push(emailCustomMeal.trim());
+                                        }
+
+                                        if (finalEmailMeals.length === 0) {
+                                            setStatus({ type: 'error', msg: 'Please select at least one token type to send.' });
                                             return;
                                         }
+
                                         setUploading(true);
                                         setStatus({ type: '', msg: '' });
                                         setEmailProgress(null);
                                         setEmailErrors([]);
 
-                                        const { success, failed } = await runEmailBatchSequence(hostelSubType, customMealName);
+                                        const { success, failed } = await runEmailBatchSequence(finalEmailMeals);
 
                                         setUploading(false);
                                         if (success > 0 || failed > 0) {

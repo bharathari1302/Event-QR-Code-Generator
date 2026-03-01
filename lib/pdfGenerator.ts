@@ -34,7 +34,8 @@ interface Participant {
 }
 
 interface PDFOptions {
-    singleMealName?: string;
+    singleMealName?: string; // backwards compatibility
+    selectedMeals?: string[];
     venue?: string;
     eventDate?: string;
 }
@@ -54,11 +55,26 @@ export async function generateInvitationPDF(participant: Participant, options: P
         { name: 'ICE CREAM', color: [219, 39, 119], dark: [170, 20, 90] },
     ];
 
-    if (options.singleMealName) {
-        const match = meals.find(m => m.name.toLowerCase() === options.singleMealName!.toLowerCase());
-        const color: [number, number, number] = match ? match.color : [29, 78, 216];
-        const dark: [number, number, number] = match ? match.dark : [20, 55, 170];
-        meals = [{ name: options.singleMealName.toUpperCase(), color, dark }];
+    // Build the requested meals list
+    const requestedMeals: string[] = [];
+    if (options.selectedMeals && options.selectedMeals.length > 0) {
+        requestedMeals.push(...options.selectedMeals);
+    } else if (options.singleMealName) {
+        requestedMeals.push(options.singleMealName);
+    }
+
+    if (requestedMeals.length > 0) {
+        const customMeals: typeof meals = [];
+        for (const reqMeal of requestedMeals) {
+            const match = meals.find(m => m.name.toLowerCase() === reqMeal.toLowerCase());
+            if (match) {
+                customMeals.push(match);
+            } else {
+                // If it's a completely custom typed meal name, fallback to blue colors
+                customMeals.push({ name: reqMeal.toUpperCase(), color: [29, 78, 216], dark: [20, 55, 170] });
+            }
+        }
+        meals = customMeals;
     }
 
     for (let i = 0; i < meals.length; i++) {

@@ -76,10 +76,14 @@ export async function POST(req: NextRequest) {
                 let failCount = 0;
 
                 // Determine PDF settings
-                let singleMealName: string | undefined = undefined;
-
-                // Always Hostel/Meal Invitation in this system
-                if (hostelSubType === 'other' && customMealName) singleMealName = customMealName;
+                const selectedMeals: string[] = body.selectedMeals || [];
+                
+                // If it's the old 'hostel_day' (empty selectedMeals but subType is hostel_day), default to all basic 5 meals
+                if (selectedMeals.length === 0 && hostelSubType === 'hostel_day') {
+                    selectedMeals.push('Breakfast', 'Lunch', 'Snacks', 'Dinner', 'Ice Cream');
+                } else if (selectedMeals.length === 0 && hostelSubType === 'other' && customMealName) {
+                    selectedMeals.push(customMealName);
+                }
 
                 const batch = adminDb.batch();
                 const CHUNK_SIZE = 5; // Smaller chunks within the 50-batch for stability
@@ -112,15 +116,16 @@ export async function POST(req: NextRequest) {
                             roomNo: p.roomNo,
                             rollNo: p.rollNo,
                             eventId: eventId
-                        }, { singleMealName });
+                        }, { selectedMeals });
 
                         if (p.email) {
                             let subject = `Your Invitation`;
                             let htmlBody = '';
 
-                            if (singleMealName) {
-                                subject = `Q-Swift | ${customMealName || 'Meal'} Invitation`;
-                                htmlBody = `<p>Hello <strong>${p.name}</strong>,</p><p>You are invited for <strong>${customMealName}</strong> via <strong>Q-Swift</strong>.</p><p>Please find your coupon attached.</p>`;
+                            if (selectedMeals.length > 0 && selectedMeals.length < 5) {
+                                const mealsList = selectedMeals.join(', ');
+                                subject = `Q-Swift | ${mealsList} Invitation`;
+                                htmlBody = `<p>Hello <strong>${p.name}</strong>,</p><p>You are invited for <strong>${mealsList}</strong> via <strong>Q-Swift</strong>.</p><p>Please find your coupon attached.</p>`;
                             } else {
                                 subject = `Q-Swift | Invitation: ${realEventName}`;
                                 htmlBody = `<p>Hello <strong>${p.name}</strong>,</p><p>Here is your coupon sheet for <strong>${realEventName}</strong>.<br/>Generated via Q-Swift.</p>`;
