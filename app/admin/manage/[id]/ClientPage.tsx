@@ -77,6 +77,7 @@ export default function ManageEventPage() {
     const [manualStudent, setManualStudent] = useState<{ id: string, name: string, rollNo: string, email: string, department: string, status: string } | null>(null);
     const [searchingManualStudent, setSearchingManualStudent] = useState(false);
     const [sendingManualEmail, setSendingManualEmail] = useState(false);
+    const [regenerateToken, setRegenerateToken] = useState(false);
 
     // Coordinator Management State
     const [coordinators, setCoordinators] = useState<Coordinator[]>([]);
@@ -623,7 +624,8 @@ export default function ManageEventPage() {
                 body: JSON.stringify({
                     eventId,
                     selectedMeals: finalManualSendMeals,
-                    targetRollNo: manualStudent.rollNo
+                    targetRollNo: manualStudent.rollNo,
+                    regenerateToken
                 })
             });
 
@@ -1096,6 +1098,15 @@ export default function ManageEventPage() {
                                         <p className="text-sm"><span className="font-medium">Email:</span> {manualStudent.email || 'Not provided'}</p>
                                         <p className="text-sm"><span className="font-medium">Status:</span> {manualStudent.status}</p>
                                     </div>
+                                    <label className="flex items-center gap-2 text-sm text-foreground mb-4 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            checked={regenerateToken}
+                                            onChange={(e) => setRegenerateToken(e.target.checked)}
+                                        />
+                                        <span>Regenerate QR Code <span className="text-xs text-red-500 font-medium">(Invalidates old ticket)</span></span>
+                                    </label>
                                     <Button
                                         onClick={handleSendManualEmail}
                                         disabled={sendingManualEmail || !manualStudent.email}

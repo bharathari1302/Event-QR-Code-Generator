@@ -15,8 +15,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
 
-    const { pdfPurpose, hostelSubType, customMealName, eventId, targetRollNo } = body || {};
-    console.log('[EMAIL] Processing request for eventId:', eventId, { hostelSubType, customMealName, targetRollNo });
+    const { pdfPurpose, hostelSubType, customMealName, eventId, targetRollNo, regenerateToken } = body || {};
+    console.log('[EMAIL] Processing request for eventId:', eventId, { hostelSubType, customMealName, targetRollNo, regenerateToken });
 
     if (!eventId) {
         console.error('[EMAIL] Missing eventId');
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
 
                 // Determine PDF settings
                 const selectedMeals: string[] = body.selectedMeals || [];
-                
+
                 // If it's the old 'hostel_day' (empty selectedMeals but subType is hostel_day), default to all basic 5 meals
                 if (selectedMeals.length === 0 && hostelSubType === 'hostel_day') {
                     selectedMeals.push('Breakfast', 'Lunch', 'Snacks', 'Dinner', 'Ice Cream');
@@ -105,13 +105,32 @@ export async function POST(req: NextRequest) {
 
                     try {
                         console.log(`[EMAIL] Processing ${i + 1}/${batchTotal}: ${p.name}`);
+                        let updatedToken = p.token;
+                        let updatedTicketId = p.ticket_id;
+
+                        if (regenerateToken) {
+                            // Generate new uniqueness token
+                            const fallbackToken = `MNTK-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+                            updatedToken = p.rollNo ? `${p.rollNo}-${Math.random().toString(36).substring(2, 6).toUpperCase()}` : fallbackToken;
+
+                            // Generate new ticket ID
+                            const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+                            updatedTicketId = `QS-${dateStr}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+
+                            batch.update(doc.ref, {
+                                token: updatedToken,
+                                ticket_id: updatedTicketId,
+                                updatedAt: new Date().toISOString()
+                            });
+                        }
+
                         const pdfBuffer = await generateInvitationPDF({
                             name: p.name,
                             college: p.college,
                             event_name: realEventName,
                             sub_event_name: p.sub_event_name,
-                            ticket_id: p.ticket_id,
-                            token: p.token,
+                            ticket_id: updatedTicketId,
+                            token: updatedToken,
                             foodPreference: p.foodPreference,
                             roomNo: p.roomNo,
                             rollNo: p.rollNo,
@@ -144,6 +163,8 @@ export async function POST(req: NextRequest) {
                             });
 
                             if (result.success) {
+                                // Update status to sent. We don't overwrite the token here if we already added it to the batch above, 
+                                // we just add the status update to the existing batch mutations for this document reference.
                                 batch.update(doc.ref, { status: 'sent' });
                                 successCount++;
                             } else {
