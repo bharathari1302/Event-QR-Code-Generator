@@ -1,7 +1,12 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User } from 'firebase/auth';
+export interface User {
+    uid: string;
+    email: string | null;
+    displayName?: string | null;
+    [key: string]: any;
+}
 // import { db } from '@/lib/firebase'; // Client SDK no longer needed here
 // import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
