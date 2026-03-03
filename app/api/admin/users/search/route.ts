@@ -1,47 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import connectDB from '@/lib/mongodb';
+import User from '@/models/User';
+import Participant from '@/models/Participant';
 
 export async function GET(req: NextRequest) {
     try {
         const { searchParams } = new URL(req.url);
         const rollNo = searchParams.get('rollNo');
+        const adminId = req.headers.get('x-admin-id');
+
+        if (!adminId) {
+            return NextResponse.json({ error: 'Unauthorized: Missing Admin Context' }, { status: 401 });
+        }
 
         if (!rollNo) {
             return NextResponse.json({ error: 'Roll No is required' }, { status: 400 });
         }
 
-        const snapshot = await adminDb.collection('users')
-            .where('role', '==', 'coordinator')
-            .where('rollNo', '==', rollNo.toUpperCase())
-            .get();
+        await connectDB();
 
-        if (!snapshot.empty) {
-            const userDoc = snapshot.docs[0];
-            const userData = userDoc.data();
+        const userDoc = await User.findOne({
+            role: 'coordinator',
+            rollNo: rollNo.toUpperCase(),
+            adminId
+        });
+
+        if (userDoc) {
             return NextResponse.json({
                 found: true,
                 source: 'user',
-                id: userDoc.id,
-                rollNo: userData.rollNo,
-                department: userData.department
+                id: userDoc._id.toString(),
+                rollNo: userDoc.rollNo,
+                department: userDoc.department
             });
         }
 
         // 2. Fallback: Search in Participants Collection (from Google Sheet)
-        const participantSnapshot = await adminDb.collection('participants')
-            .where('rollNo', '==', rollNo.toUpperCase())
-            .limit(1)
-            .get();
+        const pDoc = await Participant.findOne({
+            rollNo: rollNo.toUpperCase()
+        });
 
-        if (!participantSnapshot.empty) {
-            const pDoc = participantSnapshot.docs[0];
-            const pData = pDoc.data();
+        if (pDoc) {
             return NextResponse.json({
                 found: true,
                 source: 'participant',
-                name: pData.name,
-                rollNo: pData.rollNo,
-                department: pData.department
+                name: pDoc.name,
+                rollNo: pDoc.rollNo,
+                department: pDoc.department
             });
         }
 

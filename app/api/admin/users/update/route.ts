@@ -1,19 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import connectDB from '@/lib/mongodb';
+import User from '@/models/User';
 import bcrypt from 'bcryptjs';
 
 export async function PATCH(req: NextRequest) {
     try {
         const { userId, email, password } = await req.json();
+        const adminId = req.headers.get('x-admin-id');
+
+        if (!adminId) {
+            return NextResponse.json({ error: 'Unauthorized: Missing Admin Context' }, { status: 401 });
+        }
 
         if (!userId) {
             return NextResponse.json({ error: 'User ID is required.' }, { status: 400 });
         }
 
-        const userRef = adminDb.collection('users').doc(userId);
-        const userDoc = await userRef.get();
+        await connectDB();
 
-        if (!userDoc.exists) {
+        // Ensure the updated user actually belongs to this adminId
+        const user = await User.findOne({ _id: userId, adminId });
+
+        if (!user) {
             return NextResponse.json({ error: 'User not found.' }, { status: 404 });
         }
 
@@ -21,11 +29,8 @@ export async function PATCH(req: NextRequest) {
 
         if (email) {
             // Check for duplicates
-            const existing = await adminDb.collection('users')
-                .where('email', '==', email)
-                .get();
-            const duplicate = existing.docs.find(d => d.id !== userId);
-            if (duplicate) {
+            const duplicate = await User.findOne({ email });
+            if (duplicate && duplicate._id.toString() !== userId) {
                 return NextResponse.json({ error: 'Email already in use by another account.' }, { status: 400 });
             }
             updates.email = email;
@@ -43,7 +48,7 @@ export async function PATCH(req: NextRequest) {
             return NextResponse.json({ error: 'No fields to update.' }, { status: 400 });
         }
 
-        await userRef.update(updates);
+        await User.findByIdAndUpdate(userId, updates);
 
         return NextResponse.json({ success: true, message: 'Manager updated successfully.' });
 

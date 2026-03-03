@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import connectDB from '@/lib/mongodb';
+import Event from '@/models/Event';
+import Participant from '@/models/Participant';
 import { getSheetData, parseParticipantRow } from '@/lib/googleSheets';
 
 export async function POST(req: NextRequest) {
@@ -20,6 +22,8 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Sheet ID and Event ID are required' }, { status: 400 });
         }
 
+        await connectDB();
+
         // Determine Allowed Meals based on Sync Settings
         let allowedMeals: string[] = [];
         if (syncSubType === 'hostel_day') {
@@ -38,7 +42,7 @@ export async function POST(req: NextRequest) {
         console.log('[SYNC] ✅ Sheet data fetched:', { rowCount: dataRows.length, headers });
 
         // Update Event with persistent link automatically on successful sync
-        await adminDb.collection('events').doc(eventId).update({
+        await Event.findByIdAndUpdate(eventId, {
             googleSheetId: sheetId,
             googleSheetName: targetSheetName,
             syncSubType: syncSubType || 'hostel_day',
@@ -46,22 +50,20 @@ export async function POST(req: NextRequest) {
         });
 
         // Fetch existing participants to map rollNo -> documentId
-        const existingSnapshot = await adminDb.collection('participants')
-            .where('event_id', '==', eventId)
-            .get();
+        const existingDocs = await Participant.find({ event_id: eventId }).lean() as any[];
 
         const docIdToDataMap = new Map<string, any>();
         const rollToDocIdMap = new Map<string, string>();
         const emailToDocIdMap = new Map<string, string>();
 
-        existingSnapshot.forEach(doc => {
-            const d = doc.data();
-            docIdToDataMap.set(doc.id, d);
+        existingDocs.forEach(d => {
+            const idStr = d._id.toString();
+            docIdToDataMap.set(idStr, d);
             if (d.rollNo) {
-                rollToDocIdMap.set(d.rollNo.toUpperCase().trim(), doc.id);
+                rollToDocIdMap.set(d.rollNo.toUpperCase().trim(), idStr);
             }
             if (d.email) {
-                emailToDocIdMap.set(d.email.toLowerCase().trim(), doc.id);
+                emailToDocIdMap.set(d.email.toLowerCase().trim(), idStr);
             }
         });
 
@@ -70,9 +72,7 @@ export async function POST(req: NextRequest) {
         let skippedNoName = 0;
         let skippedDuplicateInSheet = 0; // within the current sheet run
         const totalRows = dataRows.length;
-        const batchSize = 450;
-        let batch = adminDb.batch();
-        let batchCount = 0;
+        const bulkOps: any[] = [];
 
         const currentRunRolls = new Set<string>();
 
@@ -107,8 +107,6 @@ export async function POST(req: NextRequest) {
 
             if (existingId && existingData) {
                 // UPDATE EXISTING
-                const docRef = adminDb.collection('participants').doc(existingId);
-
                 // Merge meals
                 const newMeals = [...new Set([...(existingData.allowedMeals || []), ...allowedMeals])];
 
@@ -121,47 +119,47 @@ export async function POST(req: NextRequest) {
                 // Add more if needed (food pref, etc.)
 
                 if (nameChanged || emailChanged || mealsChanged || rollChanged || deptChanged) {
-                    batch.update(docRef, {
-                        name, email, department, year, phone, foodPreference, roomNo,
-                        status: 'generated', // ONLY RESET status if data changed
-                        event_name: eventName,
-                        allowedMeals: newMeals,
-                        updated_at: new Date()
+                    bulkOps.push({
+                        updateOne: {
+                            filter: { _id: existingData._id },
+                            update: {
+                                $set: {
+                                    name, email, department, year, phone, foodPreference, roomNo,
+                                    status: 'generated', // ONLY RESET status if data changed
+                                    event_name: eventName,
+                                    allowedMeals: newMeals
+                                }
+                            }
+                        }
                     });
                     updated++;
                 }
             } else {
                 // CREATE NEW
-                const docRef = adminDb.collection('participants').doc();
                 const token = rollNo || Math.random().toString(36).substring(7).toUpperCase();
 
-                batch.set(docRef, {
-                    document_id: docRef.id,
-                    name, email, college, event_name: eventName, event_id: eventId,
-                    department, year, phone, rollNo, foodPreference, roomNo,
-                    token,
-                    status: 'generated',
-                    ticket_id: 'INV-' + Date.now().toString().slice(-6) + '-' + count,
-                    created_at: new Date(),
-                    check_in_time: null,
-                    allowedMeals: allowedMeals,
-                    tokenUsage: {
-                        breakfast: false, lunch: false, snacks: false, dinner: false, icecream: false
+                bulkOps.push({
+                    insertOne: {
+                        document: {
+                            name, email, college, event_name: eventName, event_id: eventId,
+                            department, year, phone, rollNo, foodPreference, roomNo,
+                            token,
+                            status: 'generated',
+                            ticket_id: 'INV-' + Date.now().toString().slice(-6) + '-' + count,
+                            check_in_time: null,
+                            allowedMeals: allowedMeals,
+                            tokenUsage: {
+                                breakfast: false, lunch: false, snacks: false, dinner: false, icecream: false
+                            }
+                        }
                     }
                 });
                 count++;
             }
-
-            batchCount++;
-            if (batchCount >= batchSize) {
-                await batch.commit();
-                batch = adminDb.batch();
-                batchCount = 0;
-            }
         }
 
-        if (batchCount > 0) {
-            await batch.commit();
+        if (bulkOps.length > 0) {
+            await Participant.bulkWrite(bulkOps);
         }
 
         return NextResponse.json({

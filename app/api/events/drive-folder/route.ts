@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import connectDB from '@/lib/mongodb';
+import Event from '@/models/Event';
 
 export async function GET(req: NextRequest) {
     try {
@@ -10,16 +11,17 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
         }
 
-        const eventDoc = await adminDb.collection('events').doc(eventId).get();
-        if (!eventDoc.exists) {
+        await connectDB();
+        const event = await Event.findById(eventId).lean() as any;
+
+        if (!event) {
             return NextResponse.json({ error: 'Event not found' }, { status: 404 });
         }
 
-        const data = eventDoc.data();
         return NextResponse.json({
             success: true,
-            driveFolderId: data?.driveFolderId || '',
-            driveFolderLink: data?.driveFolderId ? `https://drive.google.com/drive/folders/${data.driveFolderId}` : ''
+            driveFolderId: event?.driveFolderId || '',
+            driveFolderLink: event?.driveFolderId ? `https://drive.google.com/drive/folders/${event.driveFolderId}` : ''
         });
 
     } catch (error: any) {
@@ -38,9 +40,6 @@ export async function POST(req: NextRequest) {
         let folderId = '';
 
         if (driveUrl && driveUrl.trim()) {
-            // Extract Folder ID from URL
-            // Maches: https://drive.google.com/drive/folders/1PK7i7LfBJYwwjGh95JzCvN6l8YDetHJvZsHu3fUvwkKSb5tjfOZ0UK7JyeWT0YZAJ6UHbwnp
-            // Or just the ID itself if pasted
             const match = driveUrl.match(/[-\w]{25,}/);
             if (match) {
                 folderId = match[0];
@@ -49,8 +48,8 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // Update the event document
-        await adminDb.collection('events').doc(eventId).update({
+        await connectDB();
+        await Event.findByIdAndUpdate(eventId, {
             driveFolderId: folderId
         });
 

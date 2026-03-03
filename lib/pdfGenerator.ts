@@ -246,7 +246,8 @@ export async function generateInvitationPDF(participant: Participant, options: P
         const qrSize = 82;
 
         let qUrl: string;
-        const qPayload = `${participant.ticket_id}|${meal.name.toLowerCase()}`;
+        const normalizedMealForPayload = meal.name.toLowerCase().replace(/\s+/g, '');
+        const qPayload = `${participant.ticket_id}|${normalizedMealForPayload}`;
         try {
             qUrl = await QRCode.toDataURL(qPayload, { width: 500, margin: 1, errorCorrectionLevel: 'H' });
         } catch {

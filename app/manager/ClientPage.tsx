@@ -30,7 +30,7 @@ type Event = {
 };
 
 export default function ManagerDashboard() {
-    const { user, loading } = useAuth();
+    const { user, adminDetails, loading } = useAuth();
     const router = useRouter();
     const [events, setEvents] = useState<Event[]>([]);
     const [fetching, setFetching] = useState(true);
@@ -109,9 +109,17 @@ export default function ManagerDashboard() {
                         Here's your event management overview for today.
                     </p>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-card border border-border rounded-lg px-4 py-2 shadow-sm w-fit">
-                    <Clock className="w-4 h-4" />
-                    <span>{new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground bg-card border border-border rounded-lg px-4 py-2 shadow-sm w-fit">
+                        <Clock className="w-4 h-4" />
+                        <span>{new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    </div>
+                    {adminDetails && (
+                        <div className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full bg-blue-100/50 text-blue-700 border border-blue-200">
+                            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                            Mapped to Admin: {adminDetails.name}
+                        </div>
+                    )}
                 </div>
             </div>
 

@@ -12,7 +12,10 @@ import {
     Menu,
     X,
     ChevronRight,
-    UserCircle
+    UserCircle,
+    Coffee,
+    Star,
+    PieChart
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from './Button';
@@ -27,10 +30,10 @@ export function Sidebar() {
     // Fix: Exact match for root paths (dashboard), startsWith for sub-paths
     const isActive = (path: string) => {
         // Special case for 'Events' parent
-        if (path === '/admin/events' && pathname.includes('/admin/manage/')) {
+        if (path === '/admin/special-events' && pathname.includes('/admin/manage/')) {
             return true;
         }
-        if (path === '/manager/events' && pathname.includes('/manager/manage/')) {
+        if (path === '/manager/special-events' && pathname.includes('/manager/manage/')) {
             return true;
         }
 
@@ -44,12 +47,15 @@ export function Sidebar() {
 
     if (role === 'admin') {
         links.push({ name: 'Dashboard', href: '/admin', icon: LayoutDashboard });
+        links.push({ name: 'Analytics', href: '/admin/analytics', icon: PieChart });
         links.push({ name: 'Users', href: '/admin/users', icon: Users });
-        links.push({ name: 'Events', href: '/admin/events', icon: CalendarDays });
+        links.push({ name: 'Special Events', href: '/admin/special-events', icon: Star });
+        links.push({ name: 'Daily Meals', href: '/admin/daily-meals', icon: Coffee });
         links.push({ name: 'Food Stats', href: '/warden/dashboard', icon: QrCode });
     } else if (role === 'manager') {
         links.push({ name: 'Dashboard', href: '/manager', icon: LayoutDashboard });
-        links.push({ name: 'My Events', href: '/manager/events', icon: CalendarDays });
+        links.push({ name: 'Special Events', href: '/manager/special-events', icon: Star });
+        links.push({ name: 'Daily Meals', href: '/manager/daily-meals', icon: Coffee });
         links.push({ name: 'Food Stats', href: '/warden/dashboard', icon: QrCode });
     } else if (role === 'coordinator') {
         links.push({ name: 'Scanner', href: '/coordinator', icon: QrCode });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import connectDB from '@/lib/mongodb';
+import Participant from '@/models/Participant';
 
 export async function GET(req: NextRequest) {
     const url = new URL(req.url);
@@ -11,26 +12,24 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const snapshot = await adminDb.collection('participants')
-            .where('event_id', '==', eventId)
-            .where('rollNo', '==', rollNo)
-            .limit(1)
-            .get();
+        await connectDB();
 
-        if (snapshot.empty) {
+        const participant = await Participant.findOne({
+            event_id: eventId,
+            rollNo: rollNo
+        }).lean();
+
+        if (!participant) {
             return NextResponse.json({ error: 'Participant not found in this event' }, { status: 404 });
         }
 
-        const doc = snapshot.docs[0];
-        const data = doc.data();
-
         return NextResponse.json({
-            id: doc.id,
-            name: data.name,
-            rollNo: data.rollNo,
-            email: data.email,
-            department: data.department,
-            status: data.status
+            id: participant._id.toString(),
+            name: participant.name,
+            rollNo: participant.rollNo,
+            email: participant.email,
+            department: participant.department,
+            status: participant.status
         });
 
     } catch (error: any) {

@@ -1,29 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import connectDB from '@/lib/mongodb';
+import User from '@/models/User';
 
 export async function DELETE(req: NextRequest) {
     try {
         const { userId } = await req.json();
+        const adminId = req.headers.get('x-admin-id');
+
+        if (!adminId) {
+            return NextResponse.json({ error: 'Unauthorized: Missing Admin Context' }, { status: 401 });
+        }
 
         if (!userId) {
             return NextResponse.json({ error: 'User ID is required.' }, { status: 400 });
         }
 
-        const userRef = adminDb.collection('users').doc(userId);
-        const userDoc = await userRef.get();
+        await connectDB();
 
-        if (!userDoc.exists) {
+        // Ensure the deleted user actually belongs to this adminId
+        const user = await User.findOne({ _id: userId, adminId });
+
+        if (!user) {
             return NextResponse.json({ error: 'User not found.' }, { status: 404 });
         }
 
-        const userData = userDoc.data();
-
         // Prevent deleting admin accounts for safety
-        if (userData?.role === 'admin') {
+        if (user.role === 'admin') {
             return NextResponse.json({ error: 'Cannot delete admin accounts.' }, { status: 403 });
         }
 
-        await userRef.delete();
+        await User.findByIdAndDelete(userId);
 
         return NextResponse.json({ success: true, message: 'User deleted successfully.' });
 

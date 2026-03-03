@@ -10,8 +10,11 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [rollNo, setRollNo] = useState('');
+    const [otp, setOtp] = useState('');
+    const [otpMode, setOtpMode] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [successMsg, setSuccessMsg] = useState('');
 
     const { role, user, login, coordinatorLogin } = useAuth();
     const router = useRouter();
@@ -37,15 +40,45 @@ export default function LoginPage() {
         }
     };
 
-    const handleCoordinatorLogin = async (e: React.FormEvent) => {
+    const handleCoordinatorLoginStep1 = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError('');
+        setSuccessMsg('');
         try {
-            await coordinatorLogin(rollNo);
+            const res = await fetch('/api/auth/coordinator-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rollNo }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to send OTP');
+            }
+
+            if (data.requiresOtp) {
+                setOtpMode(true);
+                setSuccessMsg(data.message || 'OTP sent successfully!');
+            }
         } catch (err: any) {
             console.error(err);
             setError(err.message || 'Login Failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCoordinatorVerifyOtp = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        setSuccessMsg('');
+        try {
+            await coordinatorLogin(rollNo, otp);
+        } catch (err: any) {
+            console.error(err);
+            setError(err.message || 'OTP Verification Failed');
         } finally {
             setLoading(false);
         }
@@ -78,7 +111,7 @@ export default function LoginPage() {
                         Admin / Manager
                     </button>
                     <button
-                        onClick={() => { setActiveTab('coordinator'); setError(''); }}
+                        onClick={() => { setActiveTab('coordinator'); setError(''); setSuccessMsg(''); }}
                         className={`flex-1 py-4.5 sm:py-4 text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all
               ${activeTab === 'coordinator'
                                 ? 'text-purple-600 bg-white border-b-2 border-purple-600'
@@ -95,6 +128,11 @@ export default function LoginPage() {
                     {error && (
                         <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded mb-6 text-xs sm:text-sm">
                             {error}
+                        </div>
+                    )}
+                    {successMsg && (
+                        <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-4 rounded mb-6 text-xs sm:text-sm">
+                            {successMsg}
                         </div>
                     )}
 
@@ -139,34 +177,73 @@ export default function LoginPage() {
                         </form>
                     ) : (
                         /* Coordinator Form */
-                        <form onSubmit={handleCoordinatorLogin} className="space-y-5">
-                            <div className="bg-purple-50 p-4 rounded-lg border border-purple-100 mb-2">
-                                <p className="text-xs text-purple-700 text-center">
-                                    Enter your verified Roll Number to access the Food Scanner.
-                                </p>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Roll Number</label>
-                                <div className="relative">
-                                    <FaIdCard className="absolute top-3.5 left-3 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        required
-                                        value={rollNo}
-                                        onChange={(e) => setRollNo(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all placeholder-gray-400 text-gray-800 uppercase"
-                                        placeholder="e.g. 21CS001"
-                                    />
+                        !otpMode ? (
+                            <form onSubmit={handleCoordinatorLoginStep1} className="space-y-5">
+                                <div className="bg-purple-50 p-4 rounded-lg border border-purple-100 mb-2">
+                                    <p className="text-xs text-purple-700 text-center">
+                                        Enter your verified Roll Number. An OTP will be sent to your registered email.
+                                    </p>
                                 </div>
-                            </div>
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                            >
-                                {loading ? <FaSpinner className="animate-spin" /> : 'Access Scanner'}
-                            </button>
-                        </form>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Roll Number</label>
+                                    <div className="relative">
+                                        <FaIdCard className="absolute top-3.5 left-3 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            required
+                                            value={rollNo}
+                                            onChange={(e) => setRollNo(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all placeholder-gray-400 text-gray-800 uppercase"
+                                            placeholder="e.g. 21CS001"
+                                        />
+                                    </div>
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                >
+                                    {loading ? <FaSpinner className="animate-spin" /> : 'Send OTP'}
+                                </button>
+                            </form>
+                        ) : (
+                            <form onSubmit={handleCoordinatorVerifyOtp} className="space-y-5">
+                                <div className="bg-purple-50 p-4 rounded-lg border border-purple-100 mb-2">
+                                    <p className="text-xs text-purple-700 text-center">
+                                        Enter the 6-digit OTP sent to your registered email address for Roll No: <span className="font-bold">{rollNo}</span>
+                                    </p>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">One-Time Password (OTP)</label>
+                                    <div className="relative">
+                                        <FaLock className="absolute top-3.5 left-3 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            required
+                                            maxLength={6}
+                                            value={otp}
+                                            onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
+                                            className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all placeholder-gray-400 text-gray-800 tracking-widest text-center font-bold text-lg"
+                                            placeholder="••••••"
+                                        />
+                                    </div>
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={loading || otp.length < 6}
+                                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                >
+                                    {loading ? <FaSpinner className="animate-spin" /> : 'Verify & Access Scanner'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setOtpMode(false); setSuccessMsg(''); setError(''); }}
+                                    className="w-full mt-2 text-xs font-semibold text-purple-600 hover:text-purple-800 transition-colors"
+                                >
+                                    &larr; Back to Roll Number entry
+                                </button>
+                            </form>
+                        )
                     )}
                 </div>
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import connectDB from '@/lib/mongodb';
+import User from '@/models/User';
 import bcrypt from 'bcryptjs';
 
 export async function POST(req: NextRequest) {
@@ -10,16 +11,16 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Email and Password are required' }, { status: 400 });
         }
 
-        // 1. Find user by email
-        const usersRef = adminDb.collection('users');
-        const snapshot = await usersRef.where('email', '==', email).limit(1).get();
+        await connectDB();
 
-        if (snapshot.empty) {
+        // 1. Find user by email
+        const userDoc = await User.findOne({ email });
+
+        if (!userDoc) {
             return NextResponse.json({ error: 'Invalid Email or Password' }, { status: 401 });
         }
 
-        const userDoc = snapshot.docs[0];
-        const userData = userDoc.data();
+        const userData = userDoc.toObject();
 
         // 2. Verify Password
         if (!userData.passwordHash) {
@@ -36,9 +37,25 @@ export async function POST(req: NextRequest) {
         // 3. Return User Info (exclude password)
         const { passwordHash, ...safeUser } = userData;
 
+        let adminDetails = null;
+        let adminId = userData.adminId;
+
+        // An Admin is their own tenant
+        if (userData.role === 'admin') {
+            adminId = userData.uid || userData._id.toString();
+            adminDetails = { name: userData.department || 'Admin', email: userData.email };
+        } else if (adminId) {
+            const adminDoc = await User.findOne({
+                $or: [{ uid: adminId }, { _id: adminId }] // handle both firebase uid or mongo _id
+            }).lean() as any;
+            if (adminDoc) {
+                adminDetails = { name: adminDoc.department || 'Admin', email: adminDoc.email };
+            }
+        }
+
         return NextResponse.json({
             success: true,
-            user: safeUser
+            user: { ...safeUser, adminId, adminDetails }
         });
 
     } catch (error: any) {

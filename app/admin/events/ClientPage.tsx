@@ -10,6 +10,7 @@ import { Button } from '@/app/components/ui/Button';
 type Event = {
     id: string;
     name: string;
+    eventType?: 'special' | 'daily';
     date: string;
     venue: string;
 };
@@ -33,7 +34,7 @@ export default function EventsPage() {
 
     // New Event Form State
     const [showForm, setShowForm] = useState(false);
-    const [formData, setFormData] = useState({ name: '', date: '', venue: '' });
+    const [formData, setFormData] = useState({ name: '', date: '', venue: '', eventType: 'special' as 'special' | 'daily' });
     const [creating, setCreating] = useState(false);
 
     const fetchEvents = async () => {
@@ -66,7 +67,7 @@ export default function EventsPage() {
                 body: JSON.stringify(formData),
             });
             if (res.ok) {
-                setFormData({ name: '', date: '', venue: '' });
+                setFormData({ name: '', date: '', venue: '', eventType: 'special' });
                 setShowForm(false);
                 fetchEvents();
             }
@@ -95,6 +96,17 @@ export default function EventsPage() {
                 <div className="bg-card border border-border p-6 rounded-xl shadow-sm animate-in fade-in slide-in-from-top-4">
                     <h2 className="text-lg font-semibold mb-4 text-card-foreground">Create New Event</h2>
                     <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="col-span-2 md:col-span-1">
+                            <label className="block text-sm font-medium text-muted-foreground mb-1">Event Type</label>
+                            <select
+                                className="w-full p-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-ring focus:outline-none text-foreground"
+                                value={formData.eventType}
+                                onChange={e => setFormData({ ...formData, eventType: e.target.value as 'special' | 'daily' })}
+                            >
+                                <option value="special">Special Event (e.g. Hostel Day)</option>
+                                <option value="daily">Daily Mess Facility</option>
+                            </select>
+                        </div>
                         <div className="col-span-2 md:col-span-1">
                             <label className="block text-sm font-medium text-muted-foreground mb-1">Event Name</label>
                             <input
@@ -156,7 +168,12 @@ export default function EventsPage() {
                     {events.map(event => (
                         <div key={event.id} className="group bg-card border border-border rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col">
                             <div className="p-6 flex-1">
-                                <h3 className="text-xl font-bold text-card-foreground mb-2 group-hover:text-primary transition-colors">{event.name}</h3>
+                                <h3 className="text-xl font-bold text-card-foreground mb-2 group-hover:text-primary transition-colors flex items-center gap-2">
+                                    {event.name}
+                                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${event.eventType === 'daily' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                                        {event.eventType === 'daily' ? 'Daily Mess' : 'Special Event'}
+                                    </span>
+                                </h3>
                                 <div className="space-y-2 text-sm text-muted-foreground">
                                     <div className="flex items-center gap-2">
                                         <Calendar className="w-4 h-4" />

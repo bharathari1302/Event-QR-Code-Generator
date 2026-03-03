@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import connectDB from '@/lib/mongodb';
+import Event from '@/models/Event';
 
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         const { eventId, subEventName, driveLink, googleSheetId, googleSheetName, syncSubType, syncMealName } = body;
+        const adminId = req.headers.get('x-admin-id');
+
+        if (!adminId) {
+            return NextResponse.json({ error: 'Unauthorized: Missing Admin Context' }, { status: 401 });
+        }
 
         if (!eventId) {
             return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
@@ -12,7 +18,7 @@ export async function POST(req: NextRequest) {
 
         const updateData: any = {};
 
-        if (subEventName !== undefined) updateData.sub_event_name = subEventName;
+        if (subEventName !== undefined) updateData.subEvents = [subEventName]; // Ensure it translates nicely if schema demands array, but we can store it flexibly
         if (googleSheetId !== undefined) updateData.googleSheetId = googleSheetId;
         if (googleSheetName !== undefined) updateData.googleSheetName = googleSheetName;
         if (syncSubType !== undefined) updateData.syncSubType = syncSubType;
@@ -34,7 +40,16 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        await adminDb.collection('events').doc(eventId).update(updateData);
+        await connectDB();
+        const updatedEvent = await Event.findOneAndUpdate(
+            { _id: eventId, adminId },
+            updateData,
+            { new: true }
+        );
+
+        if (!updatedEvent) {
+            return NextResponse.json({ error: 'Event not found or access denied' }, { status: 404 });
+        }
 
         return NextResponse.json({
             success: true,

@@ -370,7 +370,7 @@ function DetailedView({ eventId, eventName }: { eventId: string, eventName: stri
 
                     <div className="h-6 w-px bg-border hidden md:block"></div>
 
-                    <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto">
+                    <div className="flex flex-wrap gap-2 pb-2 md:pb-0 w-full md:w-auto">
                         {meals.map(meal => (
                             <button
                                 key={meal}

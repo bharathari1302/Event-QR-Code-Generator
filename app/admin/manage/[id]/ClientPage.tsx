@@ -21,7 +21,8 @@ import {
     Search,
     Code,
     Copy,
-    RefreshCw
+    RefreshCw,
+    Plus
 } from 'lucide-react';
 import { Button } from '@/app/components/ui/Button';
 
@@ -62,15 +63,17 @@ export default function ManageEventPage() {
     interface ProgressState { current: number; total: number; success: number; failed: number; }
     const [progress, setProgress] = useState<ProgressState>({ current: 0, total: 1, success: 0, failed: 0 });
 
-    // Email Batch Sequence State (replaces hostelSubType)
-    const [emailSelectedMeals, setEmailSelectedMeals] = useState<string[]>(['Breakfast', 'Lunch', 'Snacks', 'Dinner', 'Ice Cream']);
-    const [emailCustomMeal, setEmailCustomMeal] = useState('');
-    const [emailShowCustom, setEmailShowCustom] = useState(false);
+    // Meal Configuration State
+    const PREDEFINED_MEALS = ['Breakfast', 'Lunch', 'Snacks', 'Dinner', 'Ice Cream'];
+    const [customMealsList, setCustomMealsList] = useState<string[]>([]);
+    const [customMealInput, setCustomMealInput] = useState('');
+    const [showCustomMealInput, setShowCustomMealInput] = useState(false);
+
+    // Email Batch Sequence State
+    const [emailSelectedMeals, setEmailSelectedMeals] = useState<string[]>(PREDEFINED_MEALS);
 
     // Sync Specific Token Settings
-    const [syncSelectedMeals, setSyncSelectedMeals] = useState<string[]>(['Breakfast', 'Lunch', 'Snacks', 'Dinner', 'Ice Cream']);
-    const [syncCustomMeal, setSyncCustomMeal] = useState('');
-    const [syncShowCustom, setSyncShowCustom] = useState(false);
+    const [syncSelectedMeals, setSyncSelectedMeals] = useState<string[]>(PREDEFINED_MEALS);
 
     // Manual Email Trigger State
     const [manualRollNo, setManualRollNo] = useState('');
@@ -128,12 +131,17 @@ export default function ManageEventPage() {
                     if (data.sub_event_name) setSubEventName(data.sub_event_name);
 
                     // Sync Settings (legacy support mapped to new state)
-                    if (data.syncSubType === 'other' && data.syncMealName) {
-                        setSyncSelectedMeals([]);
-                        setSyncCustomMeal(data.syncMealName);
-                        setSyncShowCustom(true);
-                    } else if (data.syncSubType === 'hostel_day') {
-                        setSyncSelectedMeals(['Breakfast', 'Lunch', 'Snacks', 'Dinner', 'Ice Cream']);
+                    if (data.syncSubType === 'hostel_day' && !data.syncMealName) {
+                        setSyncSelectedMeals(PREDEFINED_MEALS);
+                        setEmailSelectedMeals(PREDEFINED_MEALS);
+                    } else if (data.syncMealName) {
+                        const savedMeals = data.syncMealName.split(',').map((m: string) => m.trim()).filter(Boolean);
+                        setSyncSelectedMeals(savedMeals);
+                        setEmailSelectedMeals(savedMeals);
+                        const custom = savedMeals.filter((m: string) => !PREDEFINED_MEALS.includes(m));
+                        if (custom.length > 0) {
+                            setCustomMealsList(custom);
+                        }
                     }
                 })
                 .catch(err => console.error('Failed to fetch event details', err));
@@ -333,11 +341,6 @@ export default function ManageEventPage() {
         setSavingLink(true);
         setStatus({ type: '', msg: '' });
 
-        const finalSyncMeals = [...syncSelectedMeals];
-        if (syncShowCustom && syncCustomMeal.trim() && !finalSyncMeals.includes(syncCustomMeal.trim())) {
-            finalSyncMeals.push(syncCustomMeal.trim());
-        }
-
         try {
             const res = await fetch('/api/events/update', {
                 method: 'POST',
@@ -348,7 +351,7 @@ export default function ManageEventPage() {
                     subEventName,
                     googleSheetId: sheetId,
                     googleSheetName: sheetName,
-                    syncMealName: finalSyncMeals.join(', ')
+                    syncMealName: syncSelectedMeals.join(', ')
                 })
             });
             const data = await res.json();
@@ -509,13 +512,7 @@ export default function ManageEventPage() {
             return;
         }
 
-        // Combine selected predefined meals + custom meal input
-        const finalSyncMeals = [...syncSelectedMeals];
-        if (syncShowCustom && syncCustomMeal.trim() && !finalSyncMeals.includes(syncCustomMeal.trim())) {
-            finalSyncMeals.push(syncCustomMeal.trim());
-        }
-
-        if (autoSendEmails && finalSyncMeals.length === 0) {
+        if (autoSendEmails && syncSelectedMeals.length === 0) {
             setStatus({ type: 'error', msg: 'Please select at least one meal/token type for the auto-send tokens.' });
             return;
         }
@@ -535,7 +532,7 @@ export default function ManageEventPage() {
                     eventId,
                     eventName,
                     syncSubType: 'hostel_day', // legacy
-                    syncMealName: finalSyncMeals.join(', ') // Save selected meals as string for reference
+                    syncMealName: syncSelectedMeals.join(', ') // Save selected meals as string for reference
                 })
             });
 
@@ -561,7 +558,7 @@ export default function ManageEventPage() {
                     setStatus({ type: 'success', msg: `${successMsg} Sending emails...` });
                     setEmailProgress({ total: count, processed: 0, success: 0, failed: 0 }); // Initial estimate
 
-                    const { success, failed } = await runEmailBatchSequence(finalSyncMeals);
+                    const { success, failed } = await runEmailBatchSequence(syncSelectedMeals);
                     successMsg += ` ✉ Sent: ${success}, Failed: ${failed}.`;
 
                     // Keep final email progress visible
@@ -611,19 +608,13 @@ export default function ManageEventPage() {
         setSendingManualEmail(true);
         setStatus({ type: '', msg: '' });
 
-        // Combine selected predefined meals + custom meal input for manual send
-        const finalManualSendMeals = [...syncSelectedMeals];
-        if (syncShowCustom && syncCustomMeal.trim() && !finalManualSendMeals.includes(syncCustomMeal.trim())) {
-            finalManualSendMeals.push(syncCustomMeal.trim());
-        }
-
         try {
             const res = await fetch('/api/email/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     eventId,
-                    selectedMeals: finalManualSendMeals,
+                    selectedMeals: emailSelectedMeals,
                     targetRollNo: manualStudent.rollNo,
                     regenerateToken
                 })
@@ -914,8 +905,8 @@ export default function ManageEventPage() {
                                 {autoSendEmails && (
                                     <div className="mt-4 pt-4 border-t border-green-200">
                                         <label className="block text-xs font-semibold text-green-800 mb-2">Token Type for Auto-Send:</label>
-                                        <div className="flex flex-wrap gap-4 mb-2">
-                                            {['Breakfast', 'Lunch', 'Snacks', 'Dinner', 'Ice Cream'].map(meal => (
+                                        <div className="flex flex-wrap items-center gap-4 mb-2">
+                                            {[...PREDEFINED_MEALS, ...customMealsList].map(meal => (
                                                 <label key={meal} className="flex items-center gap-2 cursor-pointer bg-white border border-green-200 px-3 py-1.5 rounded-lg hover:border-green-400">
                                                     <input
                                                         type="checkbox"
@@ -929,25 +920,60 @@ export default function ManageEventPage() {
                                                     <span className="text-sm text-green-900 font-medium">{meal}</span>
                                                 </label>
                                             ))}
-                                            <label className="flex items-center gap-2 cursor-pointer bg-white border border-green-200 px-3 py-1.5 rounded-lg hover:border-green-400">
-                                                <input
-                                                    type="checkbox"
-                                                    className="rounded text-green-600 focus:ring-green-500 w-4 h-4 cursor-pointer"
-                                                    checked={syncShowCustom}
-                                                    onChange={(e) => setSyncShowCustom(e.target.checked)}
-                                                />
-                                                <span className="text-sm text-green-900 font-medium">Add meal</span>
-                                            </label>
+
+                                            <div className="flex items-center gap-2">
+                                                {!showCustomMealInput ? (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-9 gap-1.5 text-green-700 bg-white border-green-200 hover:bg-green-50 hover:text-green-800"
+                                                        onClick={() => setShowCustomMealInput(true)}
+                                                    >
+                                                        <Plus className="w-4 h-4" /> Add Meal
+                                                    </Button>
+                                                ) : (
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Custom Meal..."
+                                                            value={customMealInput}
+                                                            onChange={(e) => setCustomMealInput(e.target.value)}
+                                                            autoFocus
+                                                            className="h-9 px-2.5 text-sm bg-white border border-green-200 rounded-lg focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-400 w-40"
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    const val = customMealInput.trim();
+                                                                    if (val && !customMealsList.includes(val) && !PREDEFINED_MEALS.includes(val)) {
+                                                                        setCustomMealsList([...customMealsList, val]);
+                                                                        setSyncSelectedMeals(prev => [...prev, val]);
+                                                                    }
+                                                                    setCustomMealInput('');
+                                                                    setShowCustomMealInput(false);
+                                                                }
+                                                            }}
+                                                        />
+                                                        <Button
+                                                            size="sm"
+                                                            className="h-9 bg-green-600 hover:bg-green-700 px-3"
+                                                            onClick={() => {
+                                                                const val = customMealInput.trim();
+                                                                if (val && !customMealsList.includes(val) && !PREDEFINED_MEALS.includes(val)) {
+                                                                    setCustomMealsList([...customMealsList, val]);
+                                                                    setSyncSelectedMeals(prev => [...prev, val]);
+                                                                }
+                                                                setCustomMealInput('');
+                                                                setShowCustomMealInput(false);
+                                                            }}
+                                                        >
+                                                            Add
+                                                        </Button>
+                                                        <Button variant="ghost" size="sm" className="h-9 px-2 text-muted-foreground" onClick={() => { setCustomMealInput(''); setShowCustomMealInput(false); }}>
+                                                            Cancel
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                        {syncShowCustom && (
-                                            <input
-                                                type="text"
-                                                placeholder="Extra/New Meal Name (e.g. Special Dinner)"
-                                                value={syncCustomMeal}
-                                                onChange={(e) => setSyncCustomMeal(e.target.value)}
-                                                className="w-full mt-2 px-3 py-2 text-sm bg-white border border-green-200 rounded-lg focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-400"
-                                            />
-                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1379,8 +1405,8 @@ export default function ManageEventPage() {
                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-foreground mb-2">Select Token Types for Batch</label>
-                                    <div className="flex flex-wrap gap-3">
-                                        {['Breakfast', 'Lunch', 'Snacks', 'Dinner', 'Ice Cream'].map(meal => (
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        {[...PREDEFINED_MEALS, ...customMealsList].map(meal => (
                                             <label key={meal} className="flex items-center gap-2 p-2 px-3 bg-muted/20 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition">
                                                 <input
                                                     type="checkbox"
@@ -1394,37 +1420,65 @@ export default function ManageEventPage() {
                                                 <span className="text-sm font-medium">{meal}</span>
                                             </label>
                                         ))}
-                                        <label className="flex items-center gap-2 p-2 px-3 bg-muted/20 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition">
-                                            <input
-                                                type="checkbox"
-                                                checked={emailShowCustom}
-                                                onChange={(e) => setEmailShowCustom(e.target.checked)}
-                                                className="rounded text-purple-600 focus:ring-purple-500 w-4 h-4"
-                                            />
-                                            <span className="text-sm font-medium">Add meal</span>
-                                        </label>
+
+                                        <div className="flex items-center gap-2">
+                                            {!showCustomMealInput ? (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-9 gap-1.5 text-purple-700 bg-background border-purple-200 hover:bg-purple-50/50"
+                                                    onClick={() => setShowCustomMealInput(true)}
+                                                >
+                                                    <Plus className="w-4 h-4" /> Add Meal
+                                                </Button>
+                                            ) : (
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Custom Meal..."
+                                                        value={customMealInput}
+                                                        onChange={(e) => setCustomMealInput(e.target.value)}
+                                                        autoFocus
+                                                        className="h-9 px-3 text-sm flex-1 min-w-[140px] bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                const val = customMealInput.trim();
+                                                                if (val && !customMealsList.includes(val) && !PREDEFINED_MEALS.includes(val)) {
+                                                                    setCustomMealsList([...customMealsList, val]);
+                                                                    setEmailSelectedMeals(prev => [...prev, val]);
+                                                                }
+                                                                setCustomMealInput('');
+                                                                setShowCustomMealInput(false);
+                                                            }
+                                                        }}
+                                                    />
+                                                    <Button
+                                                        size="sm"
+                                                        className="h-9 bg-purple-600 hover:bg-purple-700 px-3"
+                                                        onClick={() => {
+                                                            const val = customMealInput.trim();
+                                                            if (val && !customMealsList.includes(val) && !PREDEFINED_MEALS.includes(val)) {
+                                                                setCustomMealsList([...customMealsList, val]);
+                                                                setEmailSelectedMeals(prev => [...prev, val]);
+                                                            }
+                                                            setCustomMealInput('');
+                                                            setShowCustomMealInput(false);
+                                                        }}
+                                                    >
+                                                        Add
+                                                    </Button>
+                                                    <Button variant="ghost" size="sm" className="h-9 px-2 text-muted-foreground" onClick={() => { setCustomMealInput(''); setShowCustomMealInput(false); }}>
+                                                        Cancel
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-
-                                {emailShowCustom && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-muted-foreground mb-1.5">Extra/New Meal Name</label>
-                                        <input
-                                            type="text"
-                                            placeholder="e.g. Special Dinner"
-                                            value={emailCustomMeal}
-                                            onChange={(e) => setEmailCustomMeal(e.target.value)}
-                                            className="w-full p-2.5 bg-background border border-input rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                        />
-                                    </div>
-                                )}
 
                                 <Button
                                     onClick={async () => {
                                         const finalEmailMeals = [...emailSelectedMeals];
-                                        if (emailShowCustom && emailCustomMeal.trim() && !finalEmailMeals.includes(emailCustomMeal.trim())) {
-                                            finalEmailMeals.push(emailCustomMeal.trim());
-                                        }
 
                                         if (finalEmailMeals.length === 0) {
                                             setStatus({ type: 'error', msg: 'Please select at least one token type to send.' });
@@ -1498,6 +1552,6 @@ export default function ManageEventPage() {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

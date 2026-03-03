@@ -1,25 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import connectDB from '@/lib/mongodb';
+import Event from '@/models/Event';
 
 export async function POST(req: NextRequest) {
     try {
-        const { name, date, venue, description } = await req.json();
+        const { name, date, venue, description, eventType } = await req.json();
+        const adminId = req.headers.get('x-admin-id');
+
+        if (!adminId) {
+            return NextResponse.json({ error: 'Unauthorized: Missing Admin Context' }, { status: 401 });
+        }
 
         if (!name || !date) {
             return NextResponse.json({ error: 'Name and Date are required' }, { status: 400 });
         }
 
-        const docRef = adminDb.collection('events').doc();
-        await docRef.set({
-            id: docRef.id,
+        await connectDB();
+
+        const newEvent = new Event({
             name,
-            date, // Store as string or timestamp, string ISO is easiest for simple UI
+            date,
+            eventType: eventType || 'special',
             venue: venue || '',
             description: description || '',
-            created_at: new Date(),
+            adminId
         });
 
-        return NextResponse.json({ success: true, id: docRef.id, message: 'Event Created' });
+        await newEvent.save();
+
+        return NextResponse.json({ success: true, id: newEvent._id.toString(), message: 'Event Created' });
 
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -28,10 +37,31 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
     try {
-        const snapshot = await adminDb.collection('events').orderBy('created_at', 'desc').get();
-        const events = snapshot.docs.map(doc => doc.data());
+        const { searchParams } = new URL(req.url);
+        const type = searchParams.get('type');
 
-        return NextResponse.json({ success: true, events });
+        const adminId = req.headers.get('x-admin-id');
+
+        if (!adminId) {
+            return NextResponse.json({ error: 'Unauthorized: Missing Admin Context' }, { status: 401 });
+        }
+
+        await connectDB();
+
+        const query: any = { adminId };
+        if (type) {
+            query.eventType = type;
+        }
+
+        const events = await Event.find(query).sort({ createdAt: -1 }).lean();
+
+        const formattedEvents = events.map((doc: any) => ({
+            ...doc,
+            id: doc._id.toString(),
+            created_at: doc.createdAt ? new Date(doc.createdAt).toISOString() : null
+        }));
+
+        return NextResponse.json({ success: true, events: formattedEvents });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import connectDB from '@/lib/mongodb';
+import Event from '@/models/Event';
+import Participant from '@/models/Participant';
 import { generateInvitationPDF } from '@/lib/pdfGenerator';
 import { sendEmail } from '@/lib/email';
 
@@ -28,28 +30,28 @@ export async function POST(req: NextRequest) {
     const stream = new ReadableStream({
         async start(controller) {
             try {
-                // 1. Query participants for THIS event - BATCHED for stability on Hobby Tier
-                const participantsRef = adminDb.collection('participants');
-                let baseQuery = participantsRef
-                    .where('event_id', '==', eventId)
-                    .where('status', '==', 'generated');
+                await connectDB();
 
-                // If specific target applies, filter it.
+                // 1. Query participants for THIS event - BATCHED for stability on Hobby Tier
+                let query: any = { event_id: eventId };
+
+                // If specific target applies, filter it. Otherwise, only run bulk for 'generated' status.
                 if (targetRollNo) {
-                    baseQuery = baseQuery.where('rollNo', '==', targetRollNo.trim().toUpperCase());
+                    query.rollNo = targetRollNo.trim().toUpperCase();
+                } else {
+                    query.status = 'generated';
                 }
 
                 // Get absolute current pending count for the progress bar
-                const totalSnapshot = await baseQuery.count().get();
-                const absoluteTotalPending = totalSnapshot.data().count;
+                const absoluteTotalPending = await Participant.countDocuments(query);
 
                 // Process a tiny batch (5) one-by-one to stay under 10s Hobby limit
                 const BATCH_LIMIT = 5;
-                const snapshot = await baseQuery.limit(BATCH_LIMIT + 1).get();
+                const docs = await Participant.find(query).limit(BATCH_LIMIT + 1).lean() as any[];
 
-                console.log(`[EMAIL] Query result for ${eventId}: ${snapshot.size}/${absoluteTotalPending} pending found.`);
+                console.log(`[EMAIL] Query result for ${eventId}: ${docs.length > BATCH_LIMIT ? BATCH_LIMIT : docs.length}/${absoluteTotalPending} pending found.`);
 
-                if (snapshot.empty) {
+                if (docs.length === 0) {
                     console.log(`[EMAIL] No pending participants for ${eventId}`);
                     controller.enqueue(encoder.encode(JSON.stringify({
                         message: 'No pending invitations found.',
@@ -62,14 +64,13 @@ export async function POST(req: NextRequest) {
                 }
 
                 // Check for more
-                const hasMore = snapshot.size > BATCH_LIMIT;
-                const docs = snapshot.docs.slice(0, BATCH_LIMIT);
-                const batchTotal = docs.length;
+                const hasMore = docs.length > BATCH_LIMIT;
+                const batchDocs = docs.slice(0, BATCH_LIMIT);
+                const batchTotal = batchDocs.length;
 
                 // Fetch Event Details for PDF
-                const eventDoc = await adminDb.collection('events').doc(eventId).get();
-                const eventData = eventDoc.data() || {};
-                const realEventName = eventData.name || 'Event';
+                const eventDoc = await Event.findById(eventId).lean() as any;
+                const realEventName = eventDoc?.name || 'Event';
 
                 let processedCount = 0;
                 let successCount = 0;
@@ -85,8 +86,7 @@ export async function POST(req: NextRequest) {
                     selectedMeals.push(customMealName);
                 }
 
-                const batch = adminDb.batch();
-                const CHUNK_SIZE = 5; // Smaller chunks within the 50-batch for stability
+                const bulkOps: any[] = [];
 
                 // Notify start
                 console.log(`[EMAIL] Starting batch session: batchSize: ${batchTotal}, absoluteTotal: ${absoluteTotalPending}`);
@@ -99,14 +99,15 @@ export async function POST(req: NextRequest) {
                 }) + '\n'));
 
                 // Sequential processing avoids memory/CPU spikes on Hobby tier
-                for (let i = 0; i < docs.length; i++) {
-                    const doc = docs[i];
-                    const p = doc.data();
+                for (let i = 0; i < batchDocs.length; i++) {
+                    const p = batchDocs[i];
 
                     try {
                         console.log(`[EMAIL] Processing ${i + 1}/${batchTotal}: ${p.name}`);
                         let updatedToken = p.token;
                         let updatedTicketId = p.ticket_id;
+
+                        let docUpdates: any = {};
 
                         if (regenerateToken) {
                             // Generate new uniqueness token
@@ -117,11 +118,8 @@ export async function POST(req: NextRequest) {
                             const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
                             updatedTicketId = `QS-${dateStr}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
 
-                            batch.update(doc.ref, {
-                                token: updatedToken,
-                                ticket_id: updatedTicketId,
-                                updatedAt: new Date().toISOString()
-                            });
+                            docUpdates.token = updatedToken;
+                            docUpdates.ticket_id = updatedTicketId;
                         }
 
                         const pdfBuffer = await generateInvitationPDF({
@@ -156,16 +154,14 @@ export async function POST(req: NextRequest) {
                                 text: 'Please check the attachment.',
                                 html: htmlBody,
                                 attachments: [{
-                                    filename: `Invitation-${p.ticket_id}.pdf`,
+                                    filename: `Invitation-${updatedTicketId}.pdf`,
                                     content: pdfBuffer,
                                     contentType: 'application/pdf'
                                 }]
                             });
 
                             if (result.success) {
-                                // Update status to sent. We don't overwrite the token here if we already added it to the batch above, 
-                                // we just add the status update to the existing batch mutations for this document reference.
-                                batch.update(doc.ref, { status: 'sent' });
+                                docUpdates.status = 'sent';
                                 successCount++;
                             } else {
                                 failCount++;
@@ -181,6 +177,15 @@ export async function POST(req: NextRequest) {
                                 status: 'error',
                                 error: `No email found for ${p.name}`
                             }) + '\n'));
+                        }
+
+                        if (Object.keys(docUpdates).length > 0) {
+                            bulkOps.push({
+                                updateOne: {
+                                    filter: { _id: p._id },
+                                    update: { $set: docUpdates }
+                                }
+                            });
                         }
                     } catch (err: any) {
                         console.error('Individual Email Error', err);
@@ -205,12 +210,16 @@ export async function POST(req: NextRequest) {
                     controller.enqueue(encoder.encode(progressData + '\n'));
                 }
 
-                await batch.commit();
+                if (bulkOps.length > 0) {
+                    await Participant.bulkWrite(bulkOps);
+                }
 
                 // Final message
                 controller.enqueue(encoder.encode(JSON.stringify({
                     status: 'completed',
                     message: `Sent ${successCount} emails. Failed: ${failCount}`,
+                    success: successCount,
+                    failed: failCount,
                     done: true,
                     hasMore: hasMore, // TELL FRONTEND TO LOOP
                     absoluteTotal: absoluteTotalPending // Should ideally be absoluteTotalPending - successCount

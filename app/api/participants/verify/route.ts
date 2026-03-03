@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import connectDB from '@/lib/mongodb';
+import Participant from '@/models/Participant';
 
 export async function POST(req: NextRequest) {
     try {
@@ -9,19 +10,14 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Ticket ID is required' }, { status: 400 });
         }
 
-        // Find the participant by ticket_id
-        const participantsRef = adminDb.collection('participants');
-        const snapshot = await participantsRef
-            .where('ticket_id', '==', ticketId)
-            .limit(1)
-            .get();
+        await connectDB();
 
-        if (snapshot.empty) {
+        // Find the participant by ticket_id
+        const participant = await Participant.findOne({ ticket_id: ticketId }).lean();
+
+        if (!participant) {
             return NextResponse.json({ error: 'Participant not found' }, { status: 404 });
         }
-
-        const participantDoc = snapshot.docs[0];
-        const participant = participantDoc.data();
 
         // Return full participant details
         return NextResponse.json({

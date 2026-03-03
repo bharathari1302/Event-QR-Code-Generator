@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import connectDB from '@/lib/mongodb';
+import Event from '@/models/Event';
 import { getParticipantPhotoUrl } from '@/lib/googleDriveHelper';
 
 export async function GET(req: NextRequest) {
@@ -12,13 +14,14 @@ export async function GET(req: NextRequest) {
     }
 
     try {
+        await connectDB();
+
         // Get event-specific folder ID if eventId is provided
         let driveFolderId: string | undefined;
         if (eventId) {
-            const { adminDb } = await import('@/lib/firebaseAdmin');
-            const eventDoc = await adminDb.collection('events').doc(eventId).get();
-            if (eventDoc.exists) {
-                driveFolderId = eventDoc.data()?.driveFolderId;
+            const eventDoc = await Event.findById(eventId).lean() as any;
+            if (eventDoc) {
+                driveFolderId = eventDoc.driveFolderId;
             }
         }
 

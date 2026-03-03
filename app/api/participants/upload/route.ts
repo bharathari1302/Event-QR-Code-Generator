@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import connectDB from '@/lib/mongodb';
+import Event from '@/models/Event';
+import Participant from '@/models/Participant';
 import * as XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -17,12 +19,14 @@ export async function POST(req: NextRequest) {
             );
         }
 
+        await connectDB();
+
         // --- ALWAYS FETCH EVENT NAME FROM DB TO ENSURE CORRECTNESS ---
         let resolvedEventName = 'Event';
         if (eventId) {
-            const eventDoc = await adminDb.collection('events').doc(eventId).get();
-            if (eventDoc.exists) {
-                resolvedEventName = eventDoc.data()?.name || 'Event';
+            const eventDoc = await Event.findById(eventId).lean() as any;
+            if (eventDoc) {
+                resolvedEventName = eventDoc.name || 'Event';
             }
         }
 
@@ -39,8 +43,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const batch = adminDb.batch();
-        const participantsRef = adminDb.collection('participants');
+        const docsToInsert: any[] = [];
         let count = 0;
 
         jsonData.forEach((row: any) => {
@@ -86,7 +89,6 @@ export async function POST(req: NextRequest) {
                     if (matchingNameKey) name = row[matchingNameKey];
                 }
 
-                const docRef = participantsRef.doc();
                 const token = uuidv4();
 
                 // --- FUZZY KEY MATCHING ---
@@ -129,20 +131,17 @@ export async function POST(req: NextRequest) {
 
                 const college = (collegeKey && row[collegeKey]) ? row[collegeKey].toString().trim() : '';
 
-                batch.set(docRef, {
-                    document_id: docRef.id,
+                docsToInsert.push({
                     name: name,
                     email: email,
                     college: college,
                     event_name: resolvedEventName,
                     event_id: eventId,
                     sub_event_name: subEventName || '',
-
                     foodPreference: foodPreference,
                     roomNo: roomNo,
                     rollNo: rollNo,
                     department: department,
-
                     tokenUsage: {
                         breakfast: false,
                         lunch: false,
@@ -150,19 +149,19 @@ export async function POST(req: NextRequest) {
                         dinner: false,
                         icecream: false
                     },
-
                     other_details: row,
                     token: token,
                     status: 'generated',
                     ticket_id: `INV-${Date.now().toString().slice(-6)}-${count}`,
-                    created_at: new Date(),
                     check_in_time: null
                 });
                 count++;
             });
         });
 
-        await batch.commit();
+        if (docsToInsert.length > 0) {
+            await Participant.insertMany(docsToInsert);
+        }
 
         return NextResponse.json({
             success: true,

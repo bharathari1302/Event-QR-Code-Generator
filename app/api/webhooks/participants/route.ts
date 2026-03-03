@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import connectDB from '@/lib/mongodb';
+import Event from '@/models/Event';
+import Participant from '@/models/Participant';
 
 // Secret key to secure the webhook (should ideally be in .env)
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'hostel_token_system_secret_key';
@@ -38,14 +40,13 @@ export async function POST(req: NextRequest) {
         const normalizedRoll = rollNo.toUpperCase().trim();
         const normalizedEmail = email ? email.toLowerCase().trim() : '';
 
+        await connectDB();
+
         // 3. Check for Duplicates (Firestore Transaction or simple check)
         // Simple check to keep it fast
-        const existingDocs = await adminDb.collection('participants')
-            .where('event_id', '==', eventId)
-            .where('rollNo', '==', normalizedRoll)
-            .get();
+        const existingDoc = await Participant.findOne({ event_id: eventId, rollNo: normalizedRoll }).lean();
 
-        if (!existingDocs.empty) {
+        if (existingDoc) {
             console.log(`[Webhook] Duplicate participant skipped: ${normalizedRoll}`);
             return NextResponse.json({ message: 'Participant already exists', skipped: true });
         }
@@ -54,29 +55,27 @@ export async function POST(req: NextRequest) {
         // Fetch event defaults if needed (e.g. allowedMeals)
         // For speed, we'll try to fetch event details or fall back to defaults
         let allowedMeals = ['breakfast', 'lunch', 'snacks', 'dinner', 'icecream']; // Fallback
+        let resolvedEventName = eventName || 'Unknown Event';
 
-        const eventDoc = await adminDb.collection('events').doc(eventId).get();
-        if (eventDoc.exists) {
-            const eventData = eventDoc.data();
+        const eventDoc = await Event.findById(eventId).lean() as any;
+        if (eventDoc) {
+            resolvedEventName = eventDoc.name || resolvedEventName;
             // If event has specific sync settings, valid logic would be here
-            // reusing logic from sync route:
-            if (eventData?.syncSubType === 'hostel_day') {
+            if (eventDoc?.syncSubType === 'hostel_day') {
                 allowedMeals = ['breakfast', 'lunch', 'snacks', 'dinner', 'icecream'];
-            } else if (eventData?.syncSubType === 'other' && eventData?.syncMealName) {
-                allowedMeals = [eventData.syncMealName.toLowerCase()];
+            } else if (eventDoc?.syncSubType === 'other' && eventDoc?.syncMealName) {
+                allowedMeals = [eventDoc.syncMealName.toLowerCase()];
             }
         }
 
         const token = normalizedRoll;
-        const docRef = adminDb.collection('participants').doc();
 
-        const newParticipant = {
+        const newParticipant = new Participant({
             ...data, // Spread ALL sheet columns into the document root as requested
-            document_id: docRef.id,
             name: name,
             email: normalizedEmail,
             college: 'Kongu Engineering College', // Default
-            event_name: eventName || eventDoc.data()?.name || 'Unknown Event',
+            event_name: resolvedEventName,
             event_id: eventId,
             department: department || '',
             year: year || '',
@@ -87,7 +86,6 @@ export async function POST(req: NextRequest) {
             token: token,
             status: 'generated',
             ticket_id: 'WEB-' + Date.now().toString().slice(-6),
-            created_at: new Date(),
             check_in_time: null,
             allowedMeals: allowedMeals,
             tokenUsage: {
@@ -98,13 +96,13 @@ export async function POST(req: NextRequest) {
                 icecream: false
             },
             source: 'webhook'
-        };
+        });
 
-        await docRef.set(newParticipant);
+        await newParticipant.save();
 
         console.log(`[Webhook] Added participant: ${name} (${normalizedRoll})`);
 
-        return NextResponse.json({ success: true, id: docRef.id });
+        return NextResponse.json({ success: true, id: newParticipant._id.toString() });
 
     } catch (error: any) {
         console.error('[Webhook] Error:', error);

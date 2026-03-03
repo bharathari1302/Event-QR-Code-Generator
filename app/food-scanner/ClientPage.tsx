@@ -30,7 +30,15 @@ export default function FoodScannerPage() {
     const [scanResult, setScanResult] = useState<FoodScanResult | null>(null);
     const [scanning, setScanning] = useState(true);
     const scannerRef = useRef<Html5QrcodeScanner | null>(null);
-    const { logout } = useAuth();
+    const { logout, eventMeals, adminDetails } = useAuth();
+    const [selectedMeal, setSelectedMeal] = useState<string>(eventMeals && eventMeals.length > 0 ? eventMeals[0] : 'breakfast');
+
+    useEffect(() => {
+        // Update default selected meal if eventMeals loads slightly after mount
+        if (eventMeals && eventMeals.length > 0 && !eventMeals.includes(selectedMeal)) {
+            setSelectedMeal(eventMeals[0]);
+        }
+    }, [eventMeals]);
 
     useEffect(() => {
         if (!scanResult && scanning) {
@@ -66,7 +74,7 @@ export default function FoodScannerPage() {
             const response = await fetch('/api/verify-food', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ qrPayload, dryRun: true }),
+                body: JSON.stringify({ qrPayload, dryRun: true, selectedMeal }),
             });
             const data = await response.json();
 
@@ -103,7 +111,7 @@ export default function FoodScannerPage() {
             await fetch('/api/verify-food', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ qrPayload: payload, dryRun: false }),
+                body: JSON.stringify({ qrPayload: payload, dryRun: false, selectedMeal }),
             });
             // Success - do nothing as we already reset
         } catch (error) {
@@ -137,11 +145,37 @@ export default function FoodScannerPage() {
             </button>
 
             {!scanResult && (
-                <div className="text-white text-center mb-6">
-                    <h1 className="text-3xl font-bold flex items-center justify-center gap-2">
+                <div className="text-white text-center mb-6 w-full max-w-md">
+                    <h1 className="text-3xl font-bold flex items-center justify-center gap-2 mb-2">
                         <FaUtensils /> Food Token Scanner
                     </h1>
-                    <p className="text-gray-400 text-sm">Scan any Meal Coupon or Token</p>
+                    <p className="text-gray-400 text-sm mb-4">Scan any Meal Coupon or Token</p>
+
+                    {adminDetails && (
+                        <div className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-1.5 mb-4 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                            Admin: {adminDetails.name}
+                        </div>
+                    )}
+
+                    {/* Meal Selector Dropdown */}
+                    {eventMeals && eventMeals.length > 0 && (
+                        <div className="bg-neutral-800 p-3 rounded-xl border border-neutral-700 mt-2">
+                            <label htmlFor="meal-select" className="block text-xs uppercase tracking-wider text-gray-400 mb-1 font-semibold">Active Meal Event</label>
+                            <select
+                                id="meal-select"
+                                value={selectedMeal}
+                                onChange={(e) => setSelectedMeal(e.target.value)}
+                                className="w-full bg-neutral-900 border-2 border-neutral-600 rounded-lg py-2 px-3 text-white font-bold outline-none focus:border-purple-500 transition-colors uppercase tracking-widest text-sm cursor-pointer"
+                            >
+                                {eventMeals.map(meal => (
+                                    <option key={meal} value={meal} className="uppercase bg-neutral-900 text-white font-semibold">
+                                        {meal}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -153,10 +187,10 @@ export default function FoodScannerPage() {
 
             {scanResult && (
                 <div className={`w-full max-w-md p-6 sm:p-8 rounded-2xl shadow-2xl text-center animate-fade-in
-                    ${scanResult.status === 'verified' ? 'bg-green-50' :
+                        ${scanResult.status === 'verified' ? 'bg-green-50' :
                         scanResult.status === 'used' ? 'bg-red-50' :
                             scanResult.status === 'eligible' ? 'bg-yellow-50' : 'bg-gray-800'}
-                `}>
+                    `}>
 
                     {/* Meal Type Header */}
                     {scanResult.scanDetails && (
@@ -190,10 +224,10 @@ export default function FoodScannerPage() {
                         <div className="bg-white p-5 rounded-xl border-2 border-dashed border-gray-300 text-left relative overflow-hidden">
                             {/* Food Pref Badge */}
                             <div className={`absolute top-0 right-0 p-2 pl-4 rounded-bl-xl font-bold text-white text-sm flex items-center gap-1 z-10
-                                ${scanResult.participant.foodPreference.toLowerCase().includes('veg') && !scanResult.participant.foodPreference.toLowerCase().includes('non')
+                                    ${(scanResult.participant.foodPreference || '').toLowerCase().includes('veg') && !(scanResult.participant.foodPreference || '').toLowerCase().includes('non')
                                     ? 'bg-green-600' : 'bg-red-600'}
-                            `}>
-                                {scanResult.participant.foodPreference.toLowerCase().includes('veg') && !scanResult.participant.foodPreference.toLowerCase().includes('non')
+                                `}>
+                                {(scanResult.participant.foodPreference || '').toLowerCase().includes('veg') && !(scanResult.participant.foodPreference || '').toLowerCase().includes('non')
                                     ? <><FaLeaf /> VEG</> : <><FaDrumstickBite /> NON-VEG</>}
                             </div>
 

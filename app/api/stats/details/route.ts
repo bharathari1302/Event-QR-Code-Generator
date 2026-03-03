@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import connectDB from '@/lib/mongodb';
+import Participant from '@/models/Participant';
 
 export async function GET(req: NextRequest) {
     try {
@@ -11,32 +12,40 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'Event ID and Meal Type required' }, { status: 400 });
         }
 
-        const participantsRef = adminDb.collection('participants');
-
         console.log(`FETCHING DETAILS: eventId=${eventId}, meal=${meal}`);
 
+        await connectDB();
+
         // Query ALL participants for the event (removed meal filter)
-        const snapshot = await participantsRef
-            .where('event_id', '==', eventId)
-            .get();
+        const docs = await Participant.find({ event_id: eventId }).lean() as any[];
 
-        console.log(`FETCH DETAILS: Found ${snapshot.size} participants for event ${eventId}`);
+        console.log(`FETCH DETAILS: Found ${docs.length} participants for event ${eventId}`);
 
-        const participants = snapshot.docs.map(doc => {
-            const data = doc.data();
+        const participants = docs.map((data: any) => {
             const isServed = data.tokenUsage?.[meal] === true;
 
+            // Format timestamp if it exists. Since check_ins is a Date property in schema or root property depending on how we saved it earlier. 
+            // Our verify route saves it as check_ins[meal] = new Date().
+            let checkInTime = data.check_ins?.[meal] || data[`check_in_${meal}`];
+            let formattedTime = '-';
+            if (isServed) {
+                if (checkInTime instanceof Date) {
+                    formattedTime = checkInTime.toLocaleString();
+                } else if (checkInTime) {
+                    formattedTime = new Date(checkInTime).toLocaleString();
+                } else {
+                    formattedTime = 'Verified';
+                }
+            }
+
             return {
-                id: doc.id,
+                id: data._id.toString(),
                 name: data.name,
                 rollNo: data.rollNo || 'N/A',
                 roomNo: data.roomNo || 'N/A',
                 foodPreference: data.foodPreference || 'Not Specified',
                 status: isServed ? 'Served' : 'Pending',
-                // Try to get specific check-in time if served
-                timestamp: isServed
-                    ? (data[`check_in_${meal}`]?.toDate().toLocaleString() || 'Verified')
-                    : '-'
+                timestamp: formattedTime
             };
         });
 

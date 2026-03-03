@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import connectDB from '@/lib/mongodb';
+import Participant from '@/models/Participant';
 
 export async function GET(req: NextRequest) {
     try {
@@ -11,11 +12,12 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ success: false, message: 'Event ID required' }, { status: 400 });
         }
 
-        // Fetch all participants for this event
-        const participantsRef = adminDb.collection('participants');
-        const snapshot = await participantsRef.where('event_id', '==', eventId).get();
+        await connectDB();
 
-        if (snapshot.empty) {
+        // Fetch all participants for this event
+        const docs = await Participant.find({ event_id: eventId }).lean();
+
+        if (docs.length === 0) {
             return NextResponse.json({
                 success: true,
                 served: [],
@@ -27,8 +29,7 @@ export async function GET(req: NextRequest) {
         const served: any[] = [];
         const notServed: any[] = [];
 
-        snapshot.docs.forEach(doc => {
-            const data = doc.data();
+        docs.forEach((data: any) => {
             const tokenUsage = data.tokenUsage || {};
 
             let hasUsedMeal = false;
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
             }
 
             const participant = {
-                id: doc.id,
+                id: data._id.toString(),
                 name: data.name || 'N/A',
                 rollNo: data.rollNo || 'N/A',
                 roomNo: data.other_details?.['Room No'] || data.roomNo || 'N/A',
