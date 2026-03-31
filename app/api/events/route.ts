@@ -4,7 +4,7 @@ import Event from '@/models/Event';
 
 export async function POST(req: NextRequest) {
     try {
-        const { name, date, venue, description, eventType } = await req.json();
+        const { name, date, venue, description, eventType, isDynamicForm, formFields } = await req.json();
         const adminId = req.headers.get('x-admin-id');
 
         if (!adminId) {
@@ -23,6 +23,8 @@ export async function POST(req: NextRequest) {
             eventType: eventType || 'special',
             venue: venue || '',
             description: description || '',
+            isDynamicForm: isDynamicForm || false,
+            formFields: formFields || [],
             adminId
         });
 

@@ -20,6 +20,7 @@ export interface IParticipant extends Document {
     allowedMeals?: string[];
     tokenUsage?: { [key: string]: boolean };
     check_in_time?: Date;
+    formResponses?: Record<string, string | string[]>;
     [key: string]: any; // for dynamic check_in fields like check_in_breakfast
     createdAt: Date;
     updatedAt: Date;
@@ -44,7 +45,8 @@ const ParticipantSchema: Schema = new Schema({
     token: { type: String, required: true, index: true },
     allowedMeals: [{ type: String }],
     tokenUsage: { type: Map, of: Boolean, default: {} },
-    check_in_time: { type: Date }
+    check_in_time: { type: Date },
+    formResponses: { type: Map, of: Schema.Types.Mixed, default: {} }
 }, {
     timestamps: true,
     strict: false // Allows for dynamic check_in_mealtime entries

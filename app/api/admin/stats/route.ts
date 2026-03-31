@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Event from '@/models/Event';
-import Participant from '@/models/Participant';
+import Student from '@/models/Student';
 import User from '@/models/User';
 
 export const dynamic = 'force-dynamic';
@@ -16,20 +16,16 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized: Missing Admin Context' }, { status: 401 });
         }
 
-        // Get all events owned by this admin to filter participants
-        const adminEvents = await Event.find({ adminId }).select('_id').lean();
-        const eventIds = adminEvents.map(e => e._id.toString());
-
         // Run aggregation queries in parallel, scoped to adminId where applicable
-        const [totalEvents, totalParticipants, totalUsers] = await Promise.all([
+        const [totalEvents, totalStudents, totalUsers] = await Promise.all([
             Event.countDocuments({ adminId }),
-            Participant.countDocuments({ event_id: { $in: eventIds } }),
+            Student.countDocuments({ adminId }),
             User.countDocuments({ adminId })
         ]);
 
         return NextResponse.json({
             totalEvents,
-            totalParticipants,
+            totalStudents,
             totalUsers
         });
 

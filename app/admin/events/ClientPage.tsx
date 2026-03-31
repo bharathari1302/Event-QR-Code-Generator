@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/app/components/ui/Button';
+import FormBuilder, { FormField } from '@/app/components/ui/FormBuilder';
 
 type Event = {
     id: string;
@@ -13,6 +14,7 @@ type Event = {
     eventType?: 'special' | 'daily';
     date: string;
     venue: string;
+    isDynamicForm?: boolean;
 };
 
 export default function EventsPage() {
@@ -34,7 +36,21 @@ export default function EventsPage() {
 
     // New Event Form State
     const [showForm, setShowForm] = useState(false);
-    const [formData, setFormData] = useState({ name: '', date: '', venue: '', eventType: 'special' as 'special' | 'daily' });
+    const [formData, setFormData] = useState<{
+        name: string;
+        date: string;
+        venue: string;
+        eventType: 'special' | 'daily';
+        isDynamicForm: boolean;
+        formFields: FormField[];
+    }>({ 
+        name: '', 
+        date: '', 
+        venue: '', 
+        eventType: 'special',
+        isDynamicForm: false,
+        formFields: [] 
+    });
     const [creating, setCreating] = useState(false);
 
     const fetchEvents = async () => {
@@ -67,7 +83,14 @@ export default function EventsPage() {
                 body: JSON.stringify(formData),
             });
             if (res.ok) {
-                setFormData({ name: '', date: '', venue: '', eventType: 'special' });
+                setFormData({ 
+                    name: '', 
+                    date: '', 
+                    venue: '', 
+                    eventType: 'special',
+                    isDynamicForm: false,
+                    formFields: []
+                });
                 setShowForm(false);
                 fetchEvents();
             }
@@ -138,6 +161,35 @@ export default function EventsPage() {
                                 onChange={e => setFormData({ ...formData, venue: e.target.value })}
                             />
                         </div>
+
+                        {/* Dynamic Form Toggle */}
+                        <div className="col-span-2 p-4 bg-muted/20 border border-border rounded-lg mt-2 flex items-center justify-between">
+                            <div>
+                                <h3 className="font-medium text-foreground">Fetch by Roll No (Global Registration)</h3>
+                                <p className="text-sm text-muted-foreground">Participants enter their Roll No to fetch global details before answering these custom fields.</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    className="sr-only peer" 
+                                    checked={formData.isDynamicForm}
+                                    onChange={e => setFormData({ ...formData, isDynamicForm: e.target.checked })}
+                                />
+                                <div className="w-11 h-6 bg-muted-foreground/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                            </label>
+                        </div>
+
+                        {/* Form Builder UI */}
+                        {formData.isDynamicForm && (
+                            <div className="col-span-2 bg-background p-4 border border-border rounded-lg mt-2">
+                                <h3 className="font-semibold text-lg mb-4 text-foreground">Dynamic Fields</h3>
+                                <FormBuilder 
+                                    fields={formData.formFields} 
+                                    onChange={(fields) => setFormData({ ...formData, formFields: fields })} 
+                                />
+                            </div>
+                        )}
+
                         <div className="col-span-2 flex justify-end gap-2 mt-2">
                             <Button
                                 type="button"

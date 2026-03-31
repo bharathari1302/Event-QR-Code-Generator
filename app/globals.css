@@ -31,6 +31,31 @@
   --ring: #0D1B2A;
 }
 
+/* Admin + Manager Dashboard Palette */
+.admin-manager-theme {
+  --background: #ffffff;
+  --foreground: #0f172a;
+
+  --primary: #14213d;
+  --primary-foreground: #ffffff;
+
+  --secondary: #fca311;
+  --secondary-foreground: #14213d;
+
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+
+  --card: #f8fafc;
+  --card-foreground: #0f172a;
+
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #14213d;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

@@ -1,45 +1,88 @@
 'use client';
 
 import { useAuth } from '@/app/context/AuthContext';
-import { Bell, Search, UserCircle } from 'lucide-react';
-import { Button } from './Button';
+import { UserCircle } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 interface NavbarProps {
     title?: string;
 }
 
+function formatSegment(segment: string) {
+    return segment
+        .replace(/\[|\]/g, '')
+        .replace(/-/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getPageTitle(pathname: string, fallback?: string) {
+    if (fallback) return fallback;
+
+    const cleanPath = pathname.split('?')[0];
+
+    if (cleanPath === '/admin') return 'Admin Dashboard';
+    if (cleanPath === '/manager') return 'Manager Dashboard';
+    if (cleanPath === '/warden') return 'Warden Dashboard';
+    if (cleanPath === '/coordinator') return 'Coordinator Dashboard';
+
+    const segments = cleanPath.split('/').filter(Boolean);
+    if (segments.length === 0) return 'Dashboard';
+
+    const last = segments[segments.length - 1];
+    const isIdLike = /^[a-f0-9]{8,}$/i.test(last);
+
+    if (isIdLike && segments.length >= 2) {
+        return formatSegment(segments[segments.length - 2]);
+    }
+
+    return formatSegment(last);
+}
+
 export function Navbar({ title }: NavbarProps) {
     const { user, role, department } = useAuth();
+    const pathname = usePathname();
+    const [contentHeading, setContentHeading] = useState('');
+
+    useEffect(() => {
+        const readHeading = () => {
+            const heading = document.querySelector('main h1');
+            const headingText = heading?.textContent?.trim() || '';
+            setContentHeading(headingText);
+        };
+
+        readHeading();
+
+        const main = document.querySelector('main');
+        if (!main) return;
+
+        const observer = new MutationObserver(() => {
+            readHeading();
+        });
+
+        observer.observe(main, {
+            childList: true,
+            subtree: true,
+            characterData: true,
+        });
+
+        return () => observer.disconnect();
+    }, [pathname]);
+
+    const pageTitle = contentHeading || getPageTitle(pathname, title);
 
     return (
-        <header className="h-16 border-b border-border bg-white/80 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30">
-            {/* Left: Title / Breadcrumbs */}
+        <header className="h-[80px] border-b border-border bg-card/95 backdrop-blur-md px-6 md:px-8 flex items-center justify-between sticky top-0 z-30">
             <div>
-                <h2 className="text-lg font-semibold text-foreground tracking-tight">
-                    {title || 'Dashboard'}
+                <h2 className="text-[1.35rem] font-semibold text-foreground tracking-tight leading-tight">
+                    {pageTitle}
                 </h2>
             </div>
 
-            {/* Right: Actions & Profile */}
             <div className="flex items-center gap-4">
-                {/* Search Bar (Optional, can be expanded) */}
-                <div className="hidden md:flex items-center bg-muted/50 px-3 py-1.5 rounded-md border border-transparent focus-within:border-ring/20 transition-all">
-                    <Search className="w-4 h-4 text-muted-foreground mr-2" />
-                    <input
-                        type="text"
-                        placeholder="Search..."
-                        className="bg-transparent border-none outline-none text-sm w-48 text-foreground placeholder:text-muted-foreground"
-                    />
-                </div>
+                <div className="h-8 w-px bg-border/60" />
 
-                <Button variant="ghost" size="icon" className="relative text-muted-foreground">
-                    <Bell className="w-5 h-5" />
-                    <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white" />
-                </Button>
-
-                <div className="h-8 w-px bg-border/60 mx-1" />
-
-                <div className="flex items-center gap-3 pl-1">
+                <div className="flex items-center gap-3">
                     <div className="text-right hidden sm:block">
                         <p className="text-sm font-medium leading-none text-foreground">{user?.displayName || (role ? role.charAt(0).toUpperCase() + role.slice(1) : 'User')}</p>
                         {role !== 'admin' && role !== 'manager' && department && (

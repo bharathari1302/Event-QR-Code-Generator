@@ -115,8 +115,8 @@ export default function ManagerDashboard() {
                         <span>{new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
                     </div>
                     {adminDetails && (
-                        <div className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full bg-blue-100/50 text-blue-700 border border-blue-200">
-                            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                        <div className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full bg-secondary/15 text-primary border border-secondary/40">
+                            <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
                             Mapped to Admin: {adminDetails.name}
                         </div>
                     )}
@@ -129,19 +129,19 @@ export default function ManagerDashboard() {
                     label="Assigned Events"
                     value={stats.loading ? '...' : stats.totalEvents}
                     icon={CalendarDays}
-                    className="border-l-4 border-l-blue-500"
+                    className="border-l-4 border-l-primary"
                 />
                 <StatCard
                     label="Total Participants"
                     value={stats.loading ? '...' : stats.totalParticipants.toLocaleString()}
                     icon={TrendingUp}
-                    className="border-l-4 border-l-green-500"
+                    className="border-l-4 border-l-secondary"
                 />
                 <StatCard
                     label="Food Scanner"
                     value="Active"
                     icon={QrCode}
-                    className="border-l-4 border-l-orange-500"
+                    className="border-l-4 border-l-foreground"
                 />
             </div>
 
@@ -176,7 +176,7 @@ export default function ManagerDashboard() {
                                         <div className="p-2 bg-primary/10 rounded-lg">
                                             <CalendarDays className="w-4 h-4 text-primary" />
                                         </div>
-                                        <span className="text-[10px] font-semibold uppercase bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Active</span>
+                                        <span className="text-[10px] font-semibold uppercase bg-secondary/20 text-primary px-2 py-0.5 rounded-full border border-secondary/40">Active</span>
                                     </div>
                                     <h3 className="font-bold text-base mb-1 group-hover:text-primary transition-colors truncate">{event.name}</h3>
                                     <div className="flex items-center text-xs text-muted-foreground gap-1.5 mb-4">
@@ -199,16 +199,16 @@ export default function ManagerDashboard() {
                     {/* Quick Actions */}
                     <div>
                         <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-                            <Zap className="w-5 h-5 text-yellow-500" />
+                            <Zap className="w-5 h-5 text-secondary" />
                             Quick Actions
                         </h2>
                         <div className="space-y-3">
                             <Link
                                 href="/food-scanner"
-                                className="group flex items-center gap-4 bg-card border border-border rounded-xl p-4 hover:border-orange-500/40 hover:shadow-md transition-all"
+                                className="group flex items-center gap-4 bg-card border border-border rounded-xl p-4 hover:border-secondary/40 hover:shadow-md transition-all"
                             >
-                                <div className="p-3 bg-orange-100 rounded-lg group-hover:scale-110 transition-transform">
-                                    <Activity className="w-5 h-5 text-orange-600" />
+                                <div className="p-3 bg-secondary/20 rounded-lg group-hover:scale-110 transition-transform">
+                                    <Activity className="w-5 h-5 text-primary" />
                                 </div>
                                 <div className="flex-1">
                                     <h3 className="font-semibold text-sm text-foreground">Food Scanner</h3>
@@ -219,10 +219,10 @@ export default function ManagerDashboard() {
 
                             <Link
                                 href="/warden/dashboard"
-                                className="group flex items-center gap-4 bg-card border border-border rounded-xl p-4 hover:border-blue-500/40 hover:shadow-md transition-all"
+                                className="group flex items-center gap-4 bg-card border border-border rounded-xl p-4 hover:border-primary/30 hover:shadow-md transition-all"
                             >
-                                <div className="p-3 bg-blue-100 rounded-lg group-hover:scale-110 transition-transform">
-                                    <TrendingUp className="w-5 h-5 text-blue-600" />
+                                <div className="p-3 bg-primary/10 rounded-lg group-hover:scale-110 transition-transform">
+                                    <TrendingUp className="w-5 h-5 text-primary" />
                                 </div>
                                 <div className="flex-1">
                                     <h3 className="font-semibold text-sm text-foreground">Food Stats</h3>
@@ -233,10 +233,10 @@ export default function ManagerDashboard() {
 
                             <Link
                                 href="/manager/events"
-                                className="group flex items-center gap-4 bg-card border border-border rounded-xl p-4 hover:border-green-500/40 hover:shadow-md transition-all"
+                                className="group flex items-center gap-4 bg-card border border-border rounded-xl p-4 hover:border-secondary/40 hover:shadow-md transition-all"
                             >
-                                <div className="p-3 bg-green-100 rounded-lg group-hover:scale-110 transition-transform">
-                                    <Users className="w-5 h-5 text-green-600" />
+                                <div className="p-3 bg-secondary/20 rounded-lg group-hover:scale-110 transition-transform">
+                                    <Users className="w-5 h-5 text-primary" />
                                 </div>
                                 <div className="flex-1">
                                     <h3 className="font-semibold text-sm text-foreground">Manage Participants</h3>
@@ -248,7 +248,7 @@ export default function ManagerDashboard() {
                     </div>
 
                     {/* Role Info */}
-                    <div className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-xl p-5">
+                    <div className="bg-gradient-to-br from-primary/5 to-secondary/10 border border-primary/20 rounded-xl p-5">
                         <h3 className="font-bold text-primary flex items-center gap-2 mb-3">
                             <LayoutDashboard className="w-4 h-4" />
                             Manager Access
@@ -262,7 +262,7 @@ export default function ManagerDashboard() {
                                 { icon: CheckCircle2, text: 'Upload Participant Data' },
                             ].map(({ icon: Icon, text }) => (
                                 <li key={text} className="flex items-center gap-2">
-                                    <Icon className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                                    <Icon className="w-3.5 h-3.5 text-secondary shrink-0" />
                                     {text}
                                 </li>
                             ))}

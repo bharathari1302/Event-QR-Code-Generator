@@ -30,10 +30,10 @@ export function Sidebar() {
     // Fix: Exact match for root paths (dashboard), startsWith for sub-paths
     const isActive = (path: string) => {
         // Special case for 'Events' parent
-        if (path === '/admin/special-events' && pathname.includes('/admin/manage/')) {
+        if (path === '/admin/events' && pathname.includes('/admin/manage/')) {
             return true;
         }
-        if (path === '/manager/special-events' && pathname.includes('/manager/manage/')) {
+        if (path === '/manager/events' && pathname.includes('/manager/manage/')) {
             return true;
         }
 
@@ -47,16 +47,15 @@ export function Sidebar() {
 
     if (role === 'admin') {
         links.push({ name: 'Dashboard', href: '/admin', icon: LayoutDashboard });
+        links.push({ name: 'Global Students', href: '/admin/students', icon: Users });
+        links.push({ name: 'Forms', href: '/admin/forms', icon: Star });
+        links.push({ name: 'System Users', href: '/admin/users', icon: UserCircle });
+        links.push({ name: 'Events', href: '/admin/events', icon: CalendarDays });
         links.push({ name: 'Analytics', href: '/admin/analytics', icon: PieChart });
-        links.push({ name: 'Users', href: '/admin/users', icon: Users });
-        links.push({ name: 'Special Events', href: '/admin/special-events', icon: Star });
-        links.push({ name: 'Daily Meals', href: '/admin/daily-meals', icon: Coffee });
-        links.push({ name: 'Food Stats', href: '/warden/dashboard', icon: QrCode });
     } else if (role === 'manager') {
         links.push({ name: 'Dashboard', href: '/manager', icon: LayoutDashboard });
-        links.push({ name: 'Special Events', href: '/manager/special-events', icon: Star });
-        links.push({ name: 'Daily Meals', href: '/manager/daily-meals', icon: Coffee });
-        links.push({ name: 'Food Stats', href: '/warden/dashboard', icon: QrCode });
+        links.push({ name: 'Global Students', href: '/manager/students', icon: Users });
+        links.push({ name: 'Events', href: '/manager/events', icon: CalendarDays });
     } else if (role === 'coordinator') {
         links.push({ name: 'Scanner', href: '/coordinator', icon: QrCode });
     } else if (role === 'warden') {
@@ -70,7 +69,7 @@ export function Sidebar() {
             {/* Mobile Trigger */}
             <button
                 onClick={toggleSidebar}
-                className="md:hidden fixed top-4 left-4 z-50 p-2 bg-white text-slate-700 border border-border rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
+                className="md:hidden fixed top-4 left-4 z-50 p-2 bg-card text-foreground border border-border rounded-lg shadow-sm hover:bg-muted transition-colors"
                 aria-label="Toggle Menu"
             >
                 {isOpen ? <X size={20} /> : <Menu size={20} />}
@@ -86,11 +85,11 @@ export function Sidebar() {
 
             {/* Sidebar Content */}
             <aside className={cn(
-                "fixed left-0 top-0 h-screen w-64 bg-white border-r border-border flex flex-col z-50 transition-transform duration-300 ease-in-out md:translate-x-0 shadow-sm",
+                "fixed left-0 top-0 h-screen w-64 bg-card border-r border-border flex flex-col z-50 transition-transform duration-300 ease-in-out md:translate-x-0 shadow-sm",
                 isOpen ? "translate-x-0" : "-translate-x-full"
             )}>
                 {/* Logo Area */}
-                <div className="h-20 flex items-center gap-3 px-6 border-b border-border bg-slate-50/50">
+                <div className="h-20 flex items-center gap-3 px-6 border-b border-border bg-muted/50">
                     <div className="w-10 h-10 flex items-center justify-center">
                         <img src="/logo.png" alt="Q-Swift" className="w-10 h-10 object-contain" />
                     </div>
@@ -117,17 +116,17 @@ export function Sidebar() {
                                 className={cn(
                                     "relative flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group text-sm font-medium border border-transparent",
                                     active
-                                        ? "bg-blue-50 text-blue-700 font-semibold shadow-sm border-blue-100"
-                                        : "hover:bg-slate-100 hover:text-foreground text-muted-foreground"
+                                        ? "bg-primary text-primary-foreground font-semibold shadow-sm border-primary/20"
+                                        : "hover:bg-muted hover:text-foreground text-muted-foreground"
                                 )}
                             >
                                 <link.icon className={cn(
                                     "w-5 h-5 transition-colors",
-                                    active ? "text-blue-600" : "text-slate-400 group-hover:text-foreground"
+                                    active ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
                                 )} />
                                 <span>{link.name}</span>
                                 {active && (
-                                    <ChevronRight className="w-4 h-4 ml-auto text-blue-400" />
+                                    <ChevronRight className="w-4 h-4 ml-auto text-secondary" />
                                 )}
                             </Link>
                         );
@@ -135,9 +134,9 @@ export function Sidebar() {
                 </nav>
 
                 {/* User Profile & Logout */}
-                <div className="p-4 border-t border-border bg-slate-50/30">
+                <div className="p-4 border-t border-border bg-muted/40">
                     <div className="mb-4 px-2 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
+                        <div className="w-10 h-10 rounded-full bg-muted border border-border flex items-center justify-center text-muted-foreground">
                             <UserCircle className="w-6 h-6" />
                         </div>
                         <div className="flex-1 overflow-hidden">
@@ -148,7 +147,7 @@ export function Sidebar() {
 
                     <button
                         onClick={() => logout()}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-white hover:bg-red-50 hover:text-red-600 text-muted-foreground transition-all text-sm font-medium border border-border shadow-sm hover:border-red-100"
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-card hover:bg-secondary/20 hover:text-primary text-muted-foreground transition-all text-sm font-medium border border-border shadow-sm"
                     >
                         <LogOut className="w-4 h-4" />
                         <span>Sign Out</span>

@@ -1,1557 +1,409 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/app/context/AuthContext';
-import {
-    ArrowLeft,
-    Link as LinkIcon,
-    Save,
-    FileSpreadsheet,
-    Upload,
-    Mail,
-    CheckCircle2,
-    AlertCircle,
-    Loader2,
-    UserPlus,
-    Users,
-    User,
-    Trash2,
-    Search,
-    Code,
-    Copy,
-    RefreshCw,
-    Plus
-} from 'lucide-react';
+import { ArrowLeft, Settings, Loader2, Users, Utensils, FileText, Search } from 'lucide-react';
 import { Button } from '@/app/components/ui/Button';
+import { FaLeaf, FaDrumstickBite, FaFilePdf, FaTimes } from 'react-icons/fa';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
-type Coordinator = {
-    id: string; // The User ID
+type Stats = Record<string, number>;
+
+type MealParticipant = {
+    id: string;
+    name: string;
     rollNo: string;
-    department: string;
-    allowedDepartments: string[]; // e.g. ['CSE', 'ECE'] or ['ALL']
+    roomNo: string;
+    foodPreference: string;
+    status: 'Served' | 'Pending';
+    timestamp: string;
 };
 
-const DEPARTMENTS = [
-    'CIVIL', 'ECE', 'EEE', 'AIDS', 'AIML', 'MECH', 'MTS', 'IT', 'CSE', 'CSD', 'AUTO', 'CHEM', 'FT', 'M.Sc', 'MBA'
-];
+const MEALS = ['breakfast', 'lunch', 'snacks', 'dinner', 'icecream'];
 
-
-export default function ManageEventPage() {
+export default function EventFoodStatsPage() {
     const { id: eventId } = useParams() as { id: string };
     const { user, role, loading: authLoading } = useAuth();
     const router = useRouter();
 
-    // State
-    const [file, setFile] = useState<File | null>(null);
-    const [eventName, setEventName] = useState('Loading...');
-    const [subEventName, setSubEventName] = useState('');
-    const [driveLink, setDriveLink] = useState('');
-    const [savingLink, setSavingLink] = useState(false);
-    const [uploading, setUploading] = useState(false);
-    const [status, setStatus] = useState<{ type: 'success' | 'error' | ''; msg: string }>({ type: '', msg: '' });
+    const [eventName, setEventName] = useState('Loading event...');
+    const [coordinatorsCount, setCoordinatorsCount] = useState(0);
+    const [totalStudents, setTotalStudents] = useState(0);
 
-    // Sync State
-    const [sheetId, setSheetId] = useState('');
-    const [sheetName, setSheetName] = useState('');
-    const [syncingSheet, setSyncingSheet] = useState(false);
-    const [autoSendEmails, setAutoSendEmails] = useState(true);
-    const [refreshingPhotos, setRefreshingPhotos] = useState(false);
+    const [stats, setStats] = useState<Stats | null>(null);
+    const [statsLoading, setStatsLoading] = useState(false);
+    const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
-    // Progress State
-    interface ProgressState { current: number; total: number; success: number; failed: number; }
-    const [progress, setProgress] = useState<ProgressState>({ current: 0, total: 1, success: 0, failed: 0 });
+    const [selectedMeal, setSelectedMeal] = useState('breakfast');
+    const [students, setStudents] = useState<MealParticipant[]>([]);
+    const [detailsLoading, setDetailsLoading] = useState(false);
 
-    // Meal Configuration State
-    const PREDEFINED_MEALS = ['Breakfast', 'Lunch', 'Snacks', 'Dinner', 'Ice Cream'];
-    const [customMealsList, setCustomMealsList] = useState<string[]>([]);
-    const [customMealInput, setCustomMealInput] = useState('');
-    const [showCustomMealInput, setShowCustomMealInput] = useState(false);
+    const [filterFood, setFilterFood] = useState('ALL');
+    const [filterStatus, setFilterStatus] = useState('ALL');
+    const [searchTerm, setSearchTerm] = useState('');
 
-    // Email Batch Sequence State
-    const [emailSelectedMeals, setEmailSelectedMeals] = useState<string[]>(PREDEFINED_MEALS);
-
-    // Sync Specific Token Settings
-    const [syncSelectedMeals, setSyncSelectedMeals] = useState<string[]>(PREDEFINED_MEALS);
-
-    // Manual Email Trigger State
-    const [manualRollNo, setManualRollNo] = useState('');
-    const [manualStudent, setManualStudent] = useState<{ id: string, name: string, rollNo: string, email: string, department: string, status: string } | null>(null);
-    const [searchingManualStudent, setSearchingManualStudent] = useState(false);
-    const [sendingManualEmail, setSendingManualEmail] = useState(false);
-    const [regenerateToken, setRegenerateToken] = useState(false);
-
-    // Coordinator Management State
-    const [coordinators, setCoordinators] = useState<Coordinator[]>([]);
-    const [fetchingCoordinators, setFetchingCoordinators] = useState(false);
-
-    // Manual Add Participant State
-    const [addingParticipant, setAddingParticipant] = useState(false);
-    const [newParticipant, setNewParticipant] = useState({
-        name: '', email: '', rollNo: '', department: '', college: '',
-        year: '', phone: '', roomNo: '', foodPreference: 'Veg'
-    });
-    const [searchRollNo, setSearchRollNo] = useState('');
-    const [searchingUser, setSearchingUser] = useState(false);
-    const [foundUser, setFoundUser] = useState<{ id?: string, rollNo: string, department: string, source?: 'user' | 'participant', name?: string } | null>(null);
-    const [selectedDepartment, setSelectedDepartment] = useState('');
-    const [addingCoordinator, setAddingCoordinator] = useState(false);
-
-
-    // Email Progress State
-    const [emailProgress, setEmailProgress] = useState<{ total: number, processed: number, success: number, failed: number } | null>(null);
-    const [emailErrors, setEmailErrors] = useState<string[]>([]);
-
+    const [showPdfModal, setShowPdfModal] = useState(false);
+    const [selectedColumns, setSelectedColumns] = useState<string[]>([
+        'S.No', 'Student Name', 'Roll No', 'Room No', 'Food Pref', 'Status', 'Check-in Time'
+    ]);
+    const [pdfFilterStatuses, setPdfFilterStatuses] = useState<string[]>(['Served', 'Pending']);
 
     useEffect(() => {
-        if (!authLoading) {
-            if (!user || role !== 'admin') {
-                router.push('/login');
-            }
+        if (!authLoading && (!user || role !== 'admin')) {
+            router.push('/login');
         }
     }, [user, role, authLoading, router]);
 
-    useEffect(() => {
-        if (eventId && user) {
-            setEventName(`Event ID: ${eventId}`);
-            fetch(`/api/events/details?eventId=${eventId}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.driveFolderLink) setDriveLink(data.driveFolderLink);
-
-                    // Also support legacy driveFolderId if link is missing
-                    if (!data.driveFolderLink && data.driveFolderId) {
-                        setDriveLink(`https://drive.google.com/drive/folders/${data.driveFolderId}`);
-                    }
-
-                    if (data.googleSheetId) setSheetId(data.googleSheetId);
-                    if (data.googleSheetName) setSheetName(data.googleSheetName);
-                    if (data.name) setEventName(data.name);
-                    if (data.sub_event_name) setSubEventName(data.sub_event_name);
-
-                    // Sync Settings (legacy support mapped to new state)
-                    if (data.syncSubType === 'hostel_day' && !data.syncMealName) {
-                        setSyncSelectedMeals(PREDEFINED_MEALS);
-                        setEmailSelectedMeals(PREDEFINED_MEALS);
-                    } else if (data.syncMealName) {
-                        const savedMeals = data.syncMealName.split(',').map((m: string) => m.trim()).filter(Boolean);
-                        setSyncSelectedMeals(savedMeals);
-                        setEmailSelectedMeals(savedMeals);
-                        const custom = savedMeals.filter((m: string) => !PREDEFINED_MEALS.includes(m));
-                        if (custom.length > 0) {
-                            setCustomMealsList(custom);
-                        }
-                    }
-                })
-                .catch(err => console.error('Failed to fetch event details', err));
-
-            // Fetch Coordinators
-            fetchCoordinators();
-        }
-    }, [eventId, user]);
-
-    // Auto-clear error messages after 10 seconds
-    useEffect(() => {
-        if (status.msg && status.type === 'error') {
-            const timer = setTimeout(() => {
-                setStatus({ type: '', msg: '' });
-            }, 10000);
-            return () => clearTimeout(timer);
-        }
-    }, [status]);
-
-    const fetchCoordinators = async () => {
+    const fetchEventMeta = async () => {
         if (!eventId) return;
-        setFetchingCoordinators(true);
         try {
-            const res = await fetch(`/api/events/coordinators?eventId=${eventId}`);
-            const data = await res.json();
-            if (res.ok) setCoordinators(data);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setFetchingCoordinators(false);
-        }
-    };
+            const [detailsRes, coordinatorsRes, studentsRes] = await Promise.all([
+                fetch(`/api/events/details?eventId=${eventId}`),
+                fetch(`/api/events/coordinators?eventId=${eventId}`),
+                fetch('/api/students')
+            ]);
 
-    const handleRefreshPhotos = async () => {
-        setRefreshingPhotos(true);
-        try {
-            const res = await fetch(`/api/debug/photos?refresh=true&eventId=${eventId}`);
-            const data = await res.json();
-            if (data.cacheStats) {
-                // Find stats for this specific event folder or default
-                const stats = data.cacheStats.folders?.find((f: any) => f.folderId === eventId)
-                    || data.cacheStats.folders?.[0];
-                const count = stats?.size || 0;
-                setStatus({ type: 'success', msg: `Photos Refreshed! Found ${count} photos in cache.` });
-            } else {
-                setStatus({ type: 'success', msg: 'Photo cache refreshed successfully.' });
+            const detailsData = await detailsRes.json().catch(() => ({}));
+            const coordinatorsData = await coordinatorsRes.json().catch(() => ([]));
+            const studentsData = await studentsRes.json().catch(() => ({}));
+
+            if (detailsData?.name) setEventName(detailsData.name);
+            if (coordinatorsRes.ok && Array.isArray(coordinatorsData)) {
+                setCoordinatorsCount(coordinatorsData.length);
+            }
+            if (studentsRes.ok && studentsData.success && Array.isArray(studentsData.students)) {
+                setTotalStudents(studentsData.students.length);
             }
         } catch (error) {
-            console.error('Refresh photos failed:', error);
-            setStatus({ type: 'error', msg: 'Failed to refresh photos.' });
-        } finally {
-            setRefreshingPhotos(false);
+            console.error('Failed to fetch event meta', error);
         }
     };
 
-    const handleSearchCoordinator = async () => {
-        if (!searchRollNo.trim()) return;
-        setSearchingUser(true);
-        setFoundUser(null);
-        setStatus({ type: '', msg: '' });
-
-        try {
-            const res = await fetch(`/api/admin/users/search?rollNo=${searchRollNo}`);
-            const data = await res.json();
-
-            if (res.ok) {
-                // Check if already added (only if user ID is known, i.e., source is 'user')
-                // If source is participant, they don't have a user ID yet, so they can't be in coordinators list (which is based on users)
-                if (data.source === 'user' && coordinators.some(c => c.id === data.id)) {
-                    setStatus({ type: 'error', msg: 'Coordinator already added to this event.' });
-                } else {
-                    setFoundUser(data);
-                    setSelectedDepartment(data.department || ''); // Pre-fill
-                }
-            } else {
-                setStatus({ type: 'error', msg: data.error || 'Coordinator not found.' });
-            }
-        } catch (e) {
-            setStatus({ type: 'error', msg: 'Search failed.' });
-        } finally {
-            setSearchingUser(false);
-        }
-    };
-
-    const handleAddCoordinator = async () => {
-        if (!foundUser || !eventId) return;
-        setAddingCoordinator(true);
-
-        try {
-            let userId = foundUser.id;
-
-            // If source is participant (sheet), create user first
-            if (foundUser.source === 'participant') {
-                if (!selectedDepartment) throw new Error('Please select a department.');
-
-                const createRes = await fetch('/api/admin/users/create', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        role: 'coordinator',
-                        rollNo: foundUser.rollNo,
-                        department: selectedDepartment
-                    })
-                });
-                const createData = await createRes.json();
-
-                if (!createRes.ok) {
-                    throw new Error(createData.error || 'Failed to create coordinator account.');
-                }
-
-                // Fetch the new user to get ID
-                const searchRes = await fetch(`/api/admin/users/search?rollNo=${foundUser.rollNo}`);
-                const searchData = await searchRes.json();
-                if (searchRes.ok && searchData.id) {
-                    userId = searchData.id;
-                } else {
-                    throw new Error('Created user but failed to retrieve ID.');
-                }
-            }
-
-            if (!userId) throw new Error('User ID missing.');
-
-            const res = await fetch('/api/events/coordinators', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    eventId,
-                    userId,
-                    rollNo: foundUser.rollNo,
-                    department: selectedDepartment || foundUser.department,
-                    allowedDepartments: ['ALL'] // Default
-                })
-            });
-
-            if (res.ok) {
-                setStatus({ type: 'success', msg: 'Coordinator added successfully.' });
-                setFoundUser(null);
-                setSearchRollNo('');
-                fetchCoordinators();
-            } else {
-                const data = await res.json();
-                setStatus({ type: 'error', msg: data.error });
-            }
-        } catch (e: any) {
-            setStatus({ type: 'error', msg: e.message });
-        } finally {
-            setAddingCoordinator(false);
-        }
-    };
-
-    const handleRemoveCoordinator = async (coordinatorId: string) => {
-        if (!confirm('Are you sure you want to remove this coordinator?')) return;
-
-        try {
-            const res = await fetch(`/api/events/coordinators?eventId=${eventId}&coordinatorId=${coordinatorId}`, {
-                method: 'DELETE'
-            });
-
-            if (res.ok) {
-                setStatus({ type: 'success', msg: 'Coordinator removed.' });
-                fetchCoordinators();
-            } else {
-                setStatus({ type: 'error', msg: 'Failed to remove.' });
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    };
-
-    const handleUpdatePermission = async (coordinatorId: string, newAllowed: string[]) => {
-        // Optimistic update
-        const oldCoordinators = [...coordinators];
-        setCoordinators(prev => prev.map(c =>
-            c.id === coordinatorId ? { ...c, allowedDepartments: newAllowed } : c
-        ));
-
-        try {
-            await fetch('/api/events/coordinators', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    eventId,
-                    coordinatorId,
-                    allowedDepartments: newAllowed
-                })
-            });
-        } catch (e) {
-            // Revert on fail
-            setCoordinators(oldCoordinators);
-            setStatus({ type: 'error', msg: 'Failed to update permissions.' });
-        }
-    };
-
-
-    const saveSettings = async () => {
+    const fetchLiveStats = async () => {
         if (!eventId) return;
-        setSavingLink(true);
-        setStatus({ type: '', msg: '' });
-
+        setStatsLoading(true);
         try {
-            const res = await fetch('/api/events/update', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    eventId,
-                    driveLink,
-                    subEventName,
-                    googleSheetId: sheetId,
-                    googleSheetName: sheetName,
-                    syncMealName: syncSelectedMeals.join(', ')
-                })
-            });
+            const res = await fetch(`/api/stats/live?eventId=${eventId}`);
             const data = await res.json();
-            if (res.ok) {
-                setStatus({ type: 'success', msg: 'All settings saved successfully.' });
-            } else {
-                setStatus({ type: 'error', msg: data.error });
+            if (res.ok && data.stats) {
+                setStats(data.stats);
+                setLastUpdated(new Date());
             }
-        } catch (error: any) {
-            setStatus({ type: 'error', msg: error.message });
+        } catch (error) {
+            console.error('Failed to fetch food stats', error);
         } finally {
-            setSavingLink(false);
+            setStatsLoading(false);
         }
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setFile(e.target.files[0]);
-        }
-    };
-
-    const handleUpload = async () => {
-        if (!file || !eventId) {
-            setStatus({ type: 'error', msg: 'Please select a file.' });
-            return;
-        }
-
-        setUploading(true);
-        setStatus({ type: '', msg: '' });
-
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('eventId', eventId);
-        formData.append('eventName', eventName);
-        formData.append('subEventName', subEventName); // Pass sub-event name
-
+    const fetchMealDetails = async () => {
+        if (!eventId || !selectedMeal) return;
+        setDetailsLoading(true);
         try {
-            const res = await fetch('/api/participants/upload', {
-                method: 'POST',
-                body: formData,
-            });
-
+            const res = await fetch(`/api/stats/students-details?eventId=${eventId}&meal=${selectedMeal}`);
             const data = await res.json();
-
-            if (!res.ok) throw new Error(data.error || 'Upload failed');
-
-            setStatus({ type: 'success', msg: data.message });
-            setFile(null);
-        } catch (err: any) {
-            setStatus({ type: 'error', msg: err.message });
+            if (res.ok && data.students) {
+                setStudents(data.students);
+            }
+        } catch (error) {
+            console.error('Failed to fetch food detail rows', error);
         } finally {
-            setUploading(false);
+            setDetailsLoading(false);
         }
     };
 
-    // --- EMAIL BATCH SEQUENCE ---
-    const runEmailBatchSequence = async (selectedMeals: string[]) => {
-        let hasMore = true;
-        let cumulativeSuccess = 0;
-        let cumulativeFailed = 0;
-        let isFirstBatch = true;
+    useEffect(() => {
+        if (!eventId || authLoading || !user) return;
+        fetchEventMeta();
+        fetchLiveStats();
+    }, [eventId, authLoading, user]);
 
-        while (hasMore) {
-            let retryCount = 0;
-            const MAX_RETRIES = 3;
-            let successInThisBatch = false;
+    useEffect(() => {
+        if (!eventId) return;
+        fetchLiveStats();
+        const timer = setInterval(fetchLiveStats, 60000);
+        return () => clearInterval(timer);
+    }, [eventId]);
 
-            while (retryCount < MAX_RETRIES && !successInThisBatch) {
-                try {
-                    const res = await fetch('/api/email/send', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            eventId,
-                            pdfPurpose: 'hostel',
-                            selectedMeals
-                        })
-                    });
+    useEffect(() => {
+        fetchMealDetails();
+        const timer = setInterval(fetchMealDetails, 120000);
+        return () => clearInterval(timer);
+    }, [eventId, selectedMeal]);
 
-                    if (!res.ok) {
-                        const errorData = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
-                        throw new Error(errorData.error || `Server returned ${res.status}`);
-                    }
-
-                    if (!res.body) throw new Error('No response body from email service');
-
-                    const reader = res.body.getReader();
-                    const decoder = new TextDecoder();
-                    let buffer = '';
-                    let batchHasMore = false;
-
-                    while (true) {
-                        try {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-
-                            buffer += decoder.decode(value, { stream: true });
-                            const lines = buffer.split('\n');
-                            buffer = lines.pop() || '';
-
-                            for (const line of lines) {
-                                if (!line.trim()) continue;
-                                try {
-                                    const update = JSON.parse(line);
-                                    if (update.status === 'started' || update.status === 'progress') {
-                                        const currentTotal = update.absoluteTotal || update.total || 0;
-                                        const batchProcessed = update.processed || 0;
-                                        const batchSuccess = update.success || 0;
-                                        const batchFailed = update.failed || 0;
-
-                                        setEmailProgress({
-                                            total: currentTotal,
-                                            processed: cumulativeSuccess + cumulativeFailed + batchProcessed,
-                                            success: cumulativeSuccess + batchSuccess,
-                                            failed: cumulativeFailed + batchFailed
-                                        });
-                                    } else if (update.status === 'completed') {
-                                        cumulativeSuccess += update.success || 0;
-                                        cumulativeFailed += update.failed || 0;
-                                        batchHasMore = update.hasMore;
-                                        successInThisBatch = true; // We finished the stream!
-                                    } else if (update.status === 'error') {
-                                        setEmailErrors(prev => [...prev, update.error]);
-                                    }
-                                } catch (e) { console.error('JSON Parse Error', e); }
-                            }
-                        } catch (readErr: any) {
-                            console.error('Stream read error:', readErr);
-                            throw new Error(`Stream interrupted: ${readErr.message}`);
-                        }
-                    }
-
-                    hasMore = batchHasMore;
-                    isFirstBatch = false;
-
-                } catch (err: any) {
-                    retryCount++;
-                    console.error(`Email batch attempt ${retryCount} failed:`, err);
-
-                    if (retryCount < MAX_RETRIES) {
-                        setStatus({ type: 'error', msg: `Connection lag... Retrying attempt ${retryCount + 1}/3` });
-                        // Wait 2 seconds before retry
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                    } else {
-                        setEmailErrors(prev => [...prev, `Batch sequence stopped after ${MAX_RETRIES} attempts: ${err.message}`]);
-                        hasMore = false;
-                    }
-                }
-            }
-        }
-
-        return { success: cumulativeSuccess, failed: cumulativeFailed };
+    const getStat = (meal: string, type: 'total' | 'veg' | 'nonveg') => {
+        if (!stats) return 0;
+        return stats[`${type}_${meal}`] || 0;
     };
 
-    const handleSheetSync = async () => {
-        if (!sheetId) {
-            setStatus({ type: 'error', msg: 'Please configure a Sheet ID in Event Configuration first.' });
-            return;
-        }
+    const totalMealsServed = useMemo(() => {
+        return MEALS.reduce((sum, meal) => sum + getStat(meal, 'total'), 0);
+    }, [stats]);
 
-        if (autoSendEmails && syncSelectedMeals.length === 0) {
-            setStatus({ type: 'error', msg: 'Please select at least one meal/token type for the auto-send tokens.' });
-            return;
-        }
+    const filteredStudents = useMemo(() => {
+        return students.filter((p) => {
+            const pref = (p.foodPreference || '').toLowerCase();
+            const foodMatch =
+                filterFood === 'ALL' ||
+                (filterFood === 'Veg' && pref.includes('veg') && !pref.includes('non')) ||
+                (filterFood === 'Non Veg' && pref.includes('non'));
 
-        setSyncingSheet(true);
-        setStatus({ type: '', msg: '' });
-        setEmailErrors([]);
+            const statusMatch = filterStatus === 'ALL' || p.status === filterStatus;
+            const searchMatch =
+                !searchTerm ||
+                p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                p.rollNo?.toLowerCase().includes(searchTerm.toLowerCase());
 
-        try {
-            // 1. Sync Data
-            const res = await fetch('/api/participants/sync', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sheetId,
-                    sheetName, // Optional
-                    eventId,
-                    eventName,
-                    syncSubType: 'hostel_day', // legacy
-                    syncMealName: syncSelectedMeals.join(', ') // Save selected meals as string for reference
-                })
-            });
+            return foodMatch && statusMatch && searchMatch;
+        });
+    }, [students, filterFood, filterStatus, searchTerm]);
 
-            const data = await res.json();
-
-            if (res.ok) {
-                const count = data.count || 0;
-                const totalRows = data.totalRows || 0;
-                const skippedNoName = data.skippedNoName || 0;
-                const skippedDuplicate = data.skippedDuplicate || 0;
-
-                // Build detailed sync message
-                let successMsg = `Synced ${count} participants from ${totalRows} rows.`;
-                const skippedParts: string[] = [];
-                if (skippedDuplicate > 0) skippedParts.push(`${skippedDuplicate} duplicates`);
-                if (skippedNoName > 0) skippedParts.push(`${skippedNoName} missing name`);
-                if (skippedParts.length > 0) {
-                    successMsg += ` Skipped: ${skippedParts.join(', ')}.`;
-                }
-
-                // 2. Auto-Send Emails if enabled and participants added
-                if (autoSendEmails && count > 0) {
-                    setStatus({ type: 'success', msg: `${successMsg} Sending emails...` });
-                    setEmailProgress({ total: count, processed: 0, success: 0, failed: 0 }); // Initial estimate
-
-                    const { success, failed } = await runEmailBatchSequence(syncSelectedMeals);
-                    successMsg += ` ✉ Sent: ${success}, Failed: ${failed}.`;
-
-                    // Keep final email progress visible
-                    setEmailProgress({
-                        total: success + failed,
-                        processed: success + failed,
-                        success: success,
-                        failed: failed
-                    });
-                }
-
-                setStatus({ type: 'success', msg: successMsg });
-            } else {
-                setStatus({ type: 'error', msg: data.error });
-            }
-        } catch (error: any) {
-            setStatus({ type: 'error', msg: 'Network Error: ' + error.message });
-        } finally {
-            setSyncingSheet(false);
-        }
+    const toggleColumn = (col: string) => {
+        setSelectedColumns((prev) => (prev.includes(col) ? prev.filter((c) => c !== col) : [...prev, col]));
     };
 
-    const handleSearchManualStudent = async () => {
-        if (!manualRollNo.trim()) return;
-        setSearchingManualStudent(true);
-        setManualStudent(null);
-        setStatus({ type: '', msg: '' });
-
-        try {
-            const res = await fetch(`/api/participants/search?eventId=${eventId}&rollNo=${manualRollNo.trim()}`);
-            const data = await res.json();
-
-            if (res.ok) {
-                setManualStudent(data);
-            } else {
-                setStatus({ type: 'error', msg: data.error || 'Student not found in this event.' });
-            }
-        } catch (e: any) {
-            setStatus({ type: 'error', msg: 'Search failed.' });
-        } finally {
-            setSearchingManualStudent(false);
-        }
+    const togglePdfStatus = (status: string) => {
+        setPdfFilterStatuses((prev) => (prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]));
     };
 
-    const handleSendManualEmail = async () => {
-        if (!manualStudent) return;
-        setSendingManualEmail(true);
-        setStatus({ type: '', msg: '' });
+    const generatePdf = () => {
+        const doc = new jsPDF();
 
-        try {
-            const res = await fetch('/api/email/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    eventId,
-                    selectedMeals: emailSelectedMeals,
-                    targetRollNo: manualStudent.rollNo,
-                    regenerateToken
-                })
-            });
+        const pdfRows = filteredStudents.filter((p) => {
+            const s = p.status === 'Served' ? 'Served' : 'Pending';
+            return pdfFilterStatuses.includes(s);
+        });
 
-            if (!res.ok) {
-                const data = await res.json().catch(() => ({}));
-                throw new Error(data.error || 'Failed to send email');
-            }
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text(eventName, 14, 20);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Meal: ${selectedMeal.toUpperCase()}`, 14, 28);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 34);
 
-            // Since it's a stream, read until complete.
-            const reader = res.body?.getReader();
-            const decoder = new TextDecoder();
-            let success = false;
-            let errorMessage = '';
+        const body = pdfRows.map((p, idx) => {
+            const row: any[] = [];
+            if (selectedColumns.includes('S.No')) row.push(idx + 1);
+            if (selectedColumns.includes('Student Name')) row.push(p.name);
+            if (selectedColumns.includes('Roll No')) row.push(p.rollNo);
+            if (selectedColumns.includes('Room No')) row.push(p.roomNo);
+            if (selectedColumns.includes('Food Pref')) row.push(p.foodPreference);
+            if (selectedColumns.includes('Status')) row.push(p.status);
+            if (selectedColumns.includes('Check-in Time')) row.push(p.timestamp || '-');
+            return row;
+        });
 
-            if (reader) {
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
+        autoTable(doc, {
+            head: [selectedColumns],
+            body,
+            startY: 40,
+            styles: { fontSize: 10 },
+            headStyles: { fillColor: [30, 41, 59], fontStyle: 'bold' }
+        });
 
-                    const chunk = decoder.decode(value, { stream: true });
-                    const lines = chunk.split('\n');
-                    for (const line of lines) {
-                        if (!line.trim()) continue;
-                        try {
-                            const update = JSON.parse(line);
-                            if (update.status === 'completed') {
-                                success = (update.success || 0) > 0;
-                            } else if (update.status === 'error') {
-                                errorMessage = update.error;
-                            }
-                        } catch (e) { }
-                    }
-                }
-            }
-
-            if (success) {
-                setStatus({ type: 'success', msg: `Email successfully sent to ${manualStudent.name} (${manualStudent.email})` });
-                // Reset states
-                setManualStudent(null);
-                setManualRollNo('');
-            } else {
-                setStatus({ type: 'error', msg: errorMessage || 'Failed to send email.' });
-            }
-
-        } catch (error: any) {
-            setStatus({ type: 'error', msg: error.message });
-        } finally {
-            setSendingManualEmail(false);
-        }
+        doc.save(`Food_Stats_${eventName.replace(/\s+/g, '_')}_${selectedMeal}.pdf`);
+        setShowPdfModal(false);
     };
 
-    const handleAddParticipant = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setAddingParticipant(true);
-        setStatus({ type: '', msg: '' });
+    if (authLoading || !user || role !== 'admin') {
+        return (
+            <div className="min-h-[50vh] flex items-center justify-center text-muted-foreground">
+                <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading...
+            </div>
+        );
+    }
 
-        try {
-            const res = await fetch('/api/participants/add', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    eventId,
-                    eventName,
-                    subEventName,
-                    ...newParticipant
-                })
-            });
-
-            const data = await res.json();
-
-            if (res.ok) {
-                setStatus({
-                    type: 'success',
-                    msg: data.type === 'updated'
-                        ? `Participant ${newParticipant.name} updated successfully!`
-                        : `Participant ${newParticipant.name} added successfully!`
-                });
-
-                // Reset form
-                setNewParticipant({
-                    name: '', email: '', rollNo: '', department: '', college: '',
-                    year: '', phone: '', roomNo: '', foodPreference: 'Veg'
-                });
-            } else {
-                setStatus({ type: 'error', msg: data.error || 'Failed to add participant.' });
-            }
-        } catch (error: any) {
-            setStatus({ type: 'error', msg: 'Network error: ' + error.message });
-        } finally {
-            setAddingParticipant(false);
-        }
-    };
+    const availableColumns = ['S.No', 'Student Name', 'Roll No', 'Room No', 'Food Pref', 'Status', 'Check-in Time'];
 
     return (
-        <div className="max-w-7xl mx-auto px-1 sm:px-0 pb-12">
-            {/* ── Page Header ── */}
-            <div className="flex items-center gap-3 pb-5 mb-6 border-b border-border">
-                <Link href="/admin/events">
-                    <Button variant="ghost" size="icon" className="shrink-0">
-                        <ArrowLeft className="w-5 h-5" />
-                    </Button>
+        <div className="max-w-7xl mx-auto px-1 sm:px-0 pb-12 space-y-6">
+            <div className="flex items-center justify-between gap-3 pb-5 border-b border-border">
+                <div className="flex items-center gap-3 min-w-0">
+                    <Link href="/admin/events">
+                        <Button variant="ghost" size="icon"><ArrowLeft className="w-5 h-5" /></Button>
+                    </Link>
+                    <div className="min-w-0">
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">Event Food Stats</h1>
+                        <p className="text-muted-foreground text-sm truncate">{eventName}</p>
+                    </div>
+                </div>
+                <Link href={`/admin/manage/${eventId}/options`}>
+                    <Button variant="outline"><Settings className="w-4 h-4 mr-2" /> Manage Event Options</Button>
                 </Link>
-                <div className="min-w-0">
-                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground leading-tight">
-                        Manage Event
-                    </h1>
-                    <p className="text-muted-foreground text-sm truncate">{eventName}</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-card border border-border rounded-xl shadow-sm p-5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total Event Coordinators</p>
+                    <p className="mt-2 text-3xl font-bold text-foreground">{coordinatorsCount}</p>
+                </div>
+                <div className="bg-card border border-border rounded-xl shadow-sm p-5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total Students</p>
+                    <p className="mt-2 text-3xl font-bold text-foreground">{totalStudents}</p>
+                </div>
+                <div className="bg-card border border-border rounded-xl shadow-sm p-5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total Meals Served</p>
+                    <p className="mt-2 text-3xl font-bold text-foreground">{statsLoading ? '...' : totalMealsServed}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Updated: {lastUpdated.toLocaleTimeString()}</p>
                 </div>
             </div>
 
-            {/* ── Status Banner ── */}
-            {status.msg && (
-                <div className={`flex items-start gap-3 justify-between p-4 rounded-xl border animate-in fade-in slide-in-from-top-2 ${status.type === 'success'
-                    ? 'bg-green-50 text-green-800 border-green-200'
-                    : 'bg-red-50 text-red-800 border-red-200'
-                    }`}>
-                    <div className="flex items-start gap-3">
-                        {status.type === 'success'
-                            ? <CheckCircle2 className="w-5 h-5 mt-0.5 flex-shrink-0 text-green-600" />
-                            : <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0 text-red-500" />}
-                        <span className="text-sm font-medium leading-snug">{status.msg}</span>
+            <div className="bg-card border border-border rounded-xl shadow-sm p-5">
+                <h2 className="text-sm font-semibold text-card-foreground mb-4">Meal Statistics</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                    {MEALS.map((meal) => (
+                        <div key={meal} className="rounded-xl border border-border bg-muted/10 overflow-hidden">
+                            <div className="bg-primary text-primary-foreground p-3 text-center">
+                                <p className="text-xs font-bold uppercase tracking-wider">{meal}</p>
+                            </div>
+                            <div className="p-4">
+                                <p className="text-xs text-muted-foreground uppercase">Total Served</p>
+                                <p className="text-3xl font-black text-foreground">{getStat(meal, 'total')}</p>
+                                {!['snacks', 'icecream'].includes(meal) && (
+                                    <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-border">
+                                        <div className="text-center text-green-700">
+                                            <div className="flex items-center justify-center gap-1 text-xs font-semibold"><FaLeaf /> Veg</div>
+                                            <p className="text-lg font-bold">{getStat(meal, 'veg')}</p>
+                                        </div>
+                                        <div className="text-center text-red-700 border-l border-border">
+                                            <div className="flex items-center justify-center gap-1 text-xs font-semibold"><FaDrumstickBite /> Non-Veg</div>
+                                            <p className="text-lg font-bold">{getStat(meal, 'nonveg')}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                <div className="p-5 border-b border-border flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
+                    <div className="flex items-center gap-3">
+                        <Utensils className="w-5 h-5 text-primary" />
+                        <h2 className="text-lg font-bold text-foreground">Food Detail Section</h2>
+                        <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white" onClick={() => setShowPdfModal(true)}>
+                            <FaFilePdf className="mr-2" /> Export PDF
+                        </Button>
                     </div>
-                    <button
-                        onClick={() => setStatus({ type: '', msg: '' })}
-                        className="text-current opacity-50 hover:opacity-100 transition-opacity shrink-0"
-                        aria-label="Dismiss"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                        <div className="relative min-w-[220px]">
+                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                placeholder="Search name / roll no"
+                                className="w-full pl-9 pr-3 py-2 text-sm bg-background border border-input rounded-lg"
+                            />
+                        </div>
+                        <select value={filterFood} onChange={(e) => setFilterFood(e.target.value)} className="px-3 py-2 text-sm bg-background border border-input rounded-lg">
+                            <option value="ALL">All Food</option>
+                            <option value="Veg">Veg Only</option>
+                            <option value="Non Veg">Non-Veg Only</option>
+                        </select>
+                        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-3 py-2 text-sm bg-background border border-input rounded-lg">
+                            <option value="ALL">All Status</option>
+                            <option value="Served">Served</option>
+                            <option value="Pending">Not Served</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div className="px-5 pt-4 pb-3 flex flex-wrap gap-2 border-b border-border bg-muted/20">
+                    {MEALS.map((meal) => (
+                        <button
+                            key={meal}
+                            onClick={() => setSelectedMeal(meal)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase ${selectedMeal === meal ? 'bg-primary text-primary-foreground' : 'bg-background border border-border text-muted-foreground hover:bg-muted'}`}
+                        >
+                            {meal}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead className="bg-muted/40 text-muted-foreground uppercase text-xs">
+                            <tr>
+                                <th className="p-3">S.No</th>
+                                <th className="p-3">Student Name</th>
+                                <th className="p-3">Roll No</th>
+                                <th className="p-3">Room No</th>
+                                <th className="p-3">Food Pref</th>
+                                <th className="p-3">Status</th>
+                                <th className="p-3">Check-in Time</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                            {detailsLoading ? (
+                                <tr><td colSpan={7} className="p-8 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2" />Loading details...</td></tr>
+                            ) : filteredStudents.length === 0 ? (
+                                <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No records found.</td></tr>
+                            ) : (
+                                    filteredStudents.map((p, i) => (
+                                    <tr key={p.id} className="hover:bg-muted/20">
+                                        <td className="p-3 text-sm">{i + 1}</td>
+                                        <td className="p-3 font-medium">{p.name}</td>
+                                        <td className="p-3 text-sm font-mono">{p.rollNo}</td>
+                                        <td className="p-3 text-sm">{p.roomNo}</td>
+                                        <td className="p-3 text-sm">{['snacks', 'icecream'].includes(selectedMeal) ? '-' : p.foodPreference}</td>
+                                        <td className="p-3 text-sm">
+                                            <span className={`px-2 py-1 rounded text-xs font-semibold ${p.status === 'Served' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}`}>{p.status}</span>
+                                        </td>
+                                        <td className="p-3 text-sm">{p.timestamp}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {showPdfModal && (
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                    <div className="bg-card rounded-xl w-full max-w-md shadow-2xl border border-border overflow-hidden">
+                        <div className="p-5 border-b border-border flex justify-between items-center">
+                            <h3 className="font-bold text-lg text-foreground">Generate PDF Report</h3>
+                            <button onClick={() => setShowPdfModal(false)} className="text-muted-foreground hover:text-foreground"><FaTimes /></button>
+                        </div>
+                        <div className="p-5 space-y-5">
+                            <div>
+                                <p className="text-sm font-semibold mb-2">Statuses</p>
+                                <div className="flex gap-2">
+                                    {['Served', 'Pending'].map((s) => (
+                                        <label key={s} className="flex items-center gap-2 border border-border rounded-lg px-3 py-2 text-sm">
+                                            <input type="checkbox" checked={pdfFilterStatuses.includes(s)} onChange={() => togglePdfStatus(s)} />
+                                            {s === 'Pending' ? 'Not Served' : s}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold mb-2">Columns</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {availableColumns.map((col) => (
+                                        <label key={col} className="flex items-center gap-2 border border-border rounded-lg px-3 py-2 text-sm">
+                                            <input type="checkbox" checked={selectedColumns.includes(col)} onChange={() => toggleColumn(col)} />
+                                            {col}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-4 border-t border-border flex justify-end gap-2">
+                            <Button variant="ghost" onClick={() => setShowPdfModal(false)}>Cancel</Button>
+                            <Button onClick={generatePdf} disabled={!selectedColumns.length || !pdfFilterStatuses.length}>
+                                <FileText className="w-4 h-4 mr-2" /> Download Report
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             )}
-
-            {/* ── Main Grid ── */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 sm:gap-6">
-
-                {/* ── Left Column ── */}
-                <div className="space-y-5 xl:col-span-2">
-
-                    {/* ① Event Configuration */}
-                    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-                        <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
-                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold">1</span>
-                            <Save className="w-4 h-4 text-primary" />
-                            <h2 className="text-sm font-semibold text-card-foreground">Event Configuration</h2>
-                        </div>
-                        <div className="p-5 space-y-5">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Sub-Event Name</label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g. Paper Presentation"
-                                        className="w-full px-3 py-2.5 text-sm bg-background border border-input rounded-lg focus:ring-2 focus:ring-ring focus:outline-none text-foreground"
-                                        value={subEventName}
-                                        onChange={(e) => setSubEventName(e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Google Drive Folder</label>
-                                    <div className="relative">
-                                        <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                                        <input
-                                            type="text"
-                                            placeholder="https://drive.google.com..."
-                                            className="w-full pl-9 pr-3 py-2.5 text-sm bg-background border border-input rounded-lg focus:ring-2 focus:ring-ring focus:outline-none text-foreground"
-                                            value={driveLink}
-                                            onChange={(e) => setDriveLink(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="border-t border-border pt-4">
-                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Google Sheet (Default)</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-medium text-muted-foreground mb-1.5">Sheet ID</label>
-                                        <input
-                                            type="text"
-                                            placeholder="e.g. 1BxiM..."
-                                            value={sheetId}
-                                            onChange={(e) => setSheetId(e.target.value)}
-                                            className="w-full px-3 py-2.5 text-sm bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-muted-foreground mb-1.5">Sheet Name</label>
-                                        <input
-                                            type="text"
-                                            placeholder="Form Responses 1"
-                                            value={sheetName}
-                                            onChange={(e) => setSheetName(e.target.value)}
-                                            className="w-full px-3 py-2.5 text-sm bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row gap-3 pt-1">
-                                <Button onClick={saveSettings} disabled={savingLink} isLoading={savingLink} className="flex-1">
-                                    Save All Settings
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    onClick={handleRefreshPhotos}
-                                    disabled={refreshingPhotos}
-                                    isLoading={refreshingPhotos}
-                                    className="flex-1"
-                                >
-                                    <RefreshCw className="w-4 h-4 mr-2" /> Refresh Photos
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ② Import Participants */}
-                    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-                        <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
-                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-green-500/10 text-green-600 text-xs font-bold">2</span>
-                            <FileSpreadsheet className="w-4 h-4 text-green-600" />
-                            <h2 className="text-sm font-semibold text-card-foreground">Import Participants</h2>
-                        </div>
-
-                        <div className="p-5 space-y-5">
-                            {/* Google Sheet Sync */}
-                            <div className="bg-green-50/60 border border-green-100 rounded-xl p-5">
-                                <div className="flex items-center justify-between mb-3">
-                                    <h3 className="font-semibold text-green-800 text-sm">Google Sheets Sync</h3>
-                                    <span className="text-xs bg-green-200 text-green-800 px-2.5 py-0.5 rounded-full font-semibold">Recommended</span>
-                                </div>
-                                <p className="text-xs text-green-700 mb-4">Uses Sheet ID and Name configured in Event Configuration above.</p>
-
-                                <label className="flex items-center gap-2.5 text-sm text-foreground mb-4 cursor-pointer select-none">
-                                    <input
-                                        type="checkbox"
-                                        className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                                        checked={autoSendEmails}
-                                        onChange={(e) => setAutoSendEmails(e.target.checked)}
-                                    />
-                                    Auto-send emails to new participants
-                                </label>
-
-                                <Button
-                                    onClick={handleSheetSync}
-                                    disabled={syncingSheet}
-                                    isLoading={syncingSheet}
-                                    className="w-full bg-green-600 hover:bg-green-700 text-white"
-                                >
-                                    Sync Now
-                                </Button>
-
-                                {emailProgress && (
-                                    <div className={`mt-4 p-3 rounded-lg border animate-in fade-in ${!syncingSheet ? 'bg-green-50 border-green-200' : 'bg-purple-50 border-purple-100'}`}>
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className={`text-xs font-semibold ${!syncingSheet ? 'text-green-900' : 'text-purple-900'}`}>
-                                                {!syncingSheet ? '✅ Email Summary' : 'Sending Emails...'}
-                                            </span>
-                                            <span className="text-[10px] font-mono text-purple-700">
-                                                {emailProgress.processed} / {emailProgress.total}
-                                            </span>
-                                        </div>
-                                        <div className="w-full bg-purple-200 rounded-full h-1.5 mb-1.5 overflow-hidden">
-                                            <div
-                                                className="bg-purple-600 h-1.5 rounded-full transition-all duration-300 ease-out"
-                                                style={{ width: `${(emailProgress.processed / Math.max(emailProgress.total, 1)) * 100}%` }}
-                                            ></div>
-                                        </div>
-                                        <div className="flex justify-between text-[10px] text-purple-600">
-                                            <span className="text-green-600 font-medium">✅ Sent: {emailProgress.success}</span>
-                                            <span className="text-red-500 font-medium">❌ Failed: {emailProgress.failed}</span>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {emailErrors.length > 0 && (
-                                    <div className="mt-2 max-h-40 overflow-y-auto p-2 bg-red-50 border border-red-100 rounded text-[10px] text-red-600 font-mono">
-                                        <p className="font-bold mb-1 uppercase">Error Log:</p>
-                                        {emailErrors.map((err, i) => (
-                                            <div key={i} className="mb-1 border-b border-red-100 pb-1 last:border-0">• {err}</div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {autoSendEmails && (
-                                    <div className="mt-4 pt-4 border-t border-green-200">
-                                        <label className="block text-xs font-semibold text-green-800 mb-2">Token Type for Auto-Send:</label>
-                                        <div className="flex flex-wrap items-center gap-4 mb-2">
-                                            {[...PREDEFINED_MEALS, ...customMealsList].map(meal => (
-                                                <label key={meal} className="flex items-center gap-2 cursor-pointer bg-white border border-green-200 px-3 py-1.5 rounded-lg hover:border-green-400">
-                                                    <input
-                                                        type="checkbox"
-                                                        className="rounded text-green-600 focus:ring-green-500 w-4 h-4 cursor-pointer"
-                                                        checked={syncSelectedMeals.includes(meal)}
-                                                        onChange={(e) => {
-                                                            if (e.target.checked) setSyncSelectedMeals([...syncSelectedMeals, meal]);
-                                                            else setSyncSelectedMeals(syncSelectedMeals.filter(m => m !== meal));
-                                                        }}
-                                                    />
-                                                    <span className="text-sm text-green-900 font-medium">{meal}</span>
-                                                </label>
-                                            ))}
-
-                                            <div className="flex items-center gap-2">
-                                                {!showCustomMealInput ? (
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="h-9 gap-1.5 text-green-700 bg-white border-green-200 hover:bg-green-50 hover:text-green-800"
-                                                        onClick={() => setShowCustomMealInput(true)}
-                                                    >
-                                                        <Plus className="w-4 h-4" /> Add Meal
-                                                    </Button>
-                                                ) : (
-                                                    <div className="flex items-center gap-2">
-                                                        <input
-                                                            type="text"
-                                                            placeholder="Custom Meal..."
-                                                            value={customMealInput}
-                                                            onChange={(e) => setCustomMealInput(e.target.value)}
-                                                            autoFocus
-                                                            className="h-9 px-2.5 text-sm bg-white border border-green-200 rounded-lg focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-400 w-40"
-                                                            onKeyDown={(e) => {
-                                                                if (e.key === 'Enter') {
-                                                                    const val = customMealInput.trim();
-                                                                    if (val && !customMealsList.includes(val) && !PREDEFINED_MEALS.includes(val)) {
-                                                                        setCustomMealsList([...customMealsList, val]);
-                                                                        setSyncSelectedMeals(prev => [...prev, val]);
-                                                                    }
-                                                                    setCustomMealInput('');
-                                                                    setShowCustomMealInput(false);
-                                                                }
-                                                            }}
-                                                        />
-                                                        <Button
-                                                            size="sm"
-                                                            className="h-9 bg-green-600 hover:bg-green-700 px-3"
-                                                            onClick={() => {
-                                                                const val = customMealInput.trim();
-                                                                if (val && !customMealsList.includes(val) && !PREDEFINED_MEALS.includes(val)) {
-                                                                    setCustomMealsList([...customMealsList, val]);
-                                                                    setSyncSelectedMeals(prev => [...prev, val]);
-                                                                }
-                                                                setCustomMealInput('');
-                                                                setShowCustomMealInput(false);
-                                                            }}
-                                                        >
-                                                            Add
-                                                        </Button>
-                                                        <Button variant="ghost" size="sm" className="h-9 px-2 text-muted-foreground" onClick={() => { setCustomMealInput(''); setShowCustomMealInput(false); }}>
-                                                            Cancel
-                                                        </Button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="relative flex items-center py-1">
-                                <div className="flex-grow border-t border-border"></div>
-                                <span className="flex-shrink-0 mx-4 text-muted-foreground text-xs uppercase tracking-widest">Or Upload File</span>
-                                <div className="flex-grow border-t border-border"></div>
-                            </div>
-
-                            {/* File Upload */}
-                            <div className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:bg-muted/40 transition-colors cursor-pointer">
-                                <input
-                                    type="file"
-                                    accept=".xlsx, .csv"
-                                    onChange={handleFileChange}
-                                    className="hidden"
-                                    id="file-upload"
-                                />
-                                <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-1">
-                                    {file ? (
-                                        <>
-                                            <FileSpreadsheet className="text-green-600 w-8 h-8" />
-                                            <span className="font-medium text-foreground text-sm mt-1">{file.name}</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Upload className="text-muted-foreground w-8 h-8" />
-                                            <span className="text-sm text-muted-foreground mt-1">Click to upload Excel / CSV</span>
-                                        </>
-                                    )}
-                                </label>
-                            </div>
-
-                            {file && (
-                                <Button onClick={handleUpload} disabled={uploading} isLoading={uploading} className="w-full">
-                                    Upload &amp; Process
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* ③ Manual Student Entry */}
-                    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-                        <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
-                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-600 text-xs font-bold">3</span>
-                            <UserPlus className="w-4 h-4 text-emerald-600" />
-                            <h2 className="text-sm font-semibold text-card-foreground">Manual Student Entry</h2>
-                        </div>
-                        <div className="p-5">
-                            <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-4 mb-4">
-                                <p className="text-sm text-emerald-800">
-                                    Add a single participant directly to the database. If the email or Roll No exactly matches an existing record, it will update them instead.
-                                </p>
-                            </div>
-                            <form onSubmit={handleAddParticipant} className="space-y-5">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {[
-                                        { label: 'Full Name *', key: 'name', type: 'text', required: true },
-                                        { label: 'Email Address *', key: 'email', type: 'email', required: true },
-                                        { label: 'Roll No', key: 'rollNo', type: 'text' },
-                                        { label: 'Department', key: 'department', type: 'text' },
-                                        { label: 'Phone', key: 'phone', type: 'text' },
-                                        { label: 'Room No', key: 'roomNo', type: 'text' },
-                                        { label: 'College', key: 'college', type: 'text' },
-                                        { label: 'Year', key: 'year', type: 'text' },
-                                    ].map(({ label, key, type, required }) => (
-                                        <div key={key}>
-                                            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{label}</label>
-                                            <input
-                                                required={required}
-                                                type={type}
-                                                value={(newParticipant as any)[key]}
-                                                onChange={(e) => setNewParticipant({ ...newParticipant, [key]: e.target.value })}
-                                                className="w-full px-3 py-2.5 text-sm bg-background border border-emerald-200 rounded-lg focus:ring-2 focus:ring-emerald-400 focus:outline-none"
-                                            />
-                                        </div>
-                                    ))}
-                                    <div>
-                                        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Food Preference</label>
-                                        <select
-                                            value={newParticipant.foodPreference}
-                                            onChange={(e) => setNewParticipant({ ...newParticipant, foodPreference: e.target.value })}
-                                            className="w-full px-3 py-2.5 text-sm bg-background border border-emerald-200 rounded-lg focus:ring-2 focus:ring-emerald-400 focus:outline-none"
-                                        >
-                                            <option value="Veg">Veg</option>
-                                            <option value="Non Veg">Non-Veg</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="flex justify-end pt-1">
-                                    <Button
-                                        type="submit"
-                                        disabled={addingParticipant || !newParticipant.name || !newParticipant.email}
-                                        isLoading={addingParticipant}
-                                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                                    >
-                                        <UserPlus className="w-4 h-4 mr-2" /> Add Participant
-                                    </Button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-
-                    {/* ④ Manual Email Sender */}
-                    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-                        <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
-                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-500/10 text-indigo-600 text-xs font-bold">4</span>
-                            <Mail className="w-4 h-4 text-indigo-500" />
-                            <h2 className="text-sm font-semibold text-card-foreground">Manual Target Email Sender</h2>
-                        </div>
-                        <div className="p-5">
-                            <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-4 mb-4">
-                                <p className="text-sm text-indigo-800">
-                                    Search a student&apos;s Roll No to re-send their invitation email individually.
-                                </p>
-                            </div>
-
-                            <div className="flex gap-2 mb-4">
-                                <div className="relative flex-1">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                                    <input
-                                        type="text"
-                                        placeholder="Enter Roll No"
-                                        value={manualRollNo}
-                                        onChange={(e) => setManualRollNo(e.target.value.toUpperCase())}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSearchManualStudent()}
-                                        className="w-full pl-9 pr-3 py-2.5 text-sm bg-background border border-input rounded-lg focus:ring-2 focus:ring-indigo-400 focus:outline-none"
-                                    />
-                                </div>
-                                <Button
-                                    onClick={handleSearchManualStudent}
-                                    disabled={searchingManualStudent || !manualRollNo}
-                                    isLoading={searchingManualStudent}
-                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-5"
-                                >
-                                    Search
-                                </Button>
-                            </div>
-
-                            {manualStudent && (
-                                <div className="border border-indigo-200 bg-white p-4 rounded-xl animate-in zoom-in-95">
-                                    <div className="mb-3">
-                                        <h4 className="font-bold text-indigo-900 text-sm">{manualStudent.name}</h4>
-                                        <p className="text-xs text-muted-foreground">{manualStudent.rollNo} &bull; {manualStudent.department}</p>
-                                    </div>
-                                    <div className="mb-4 space-y-1">
-                                        <p className="text-sm"><span className="font-medium">Email:</span> {manualStudent.email || 'Not provided'}</p>
-                                        <p className="text-sm"><span className="font-medium">Status:</span> {manualStudent.status}</p>
-                                    </div>
-                                    <label className="flex items-center gap-2 text-sm text-foreground mb-4 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                            checked={regenerateToken}
-                                            onChange={(e) => setRegenerateToken(e.target.checked)}
-                                        />
-                                        <span>Regenerate QR Code <span className="text-xs text-red-500 font-medium">(Invalidates old ticket)</span></span>
-                                    </label>
-                                    <Button
-                                        onClick={handleSendManualEmail}
-                                        disabled={sendingManualEmail || !manualStudent.email}
-                                        isLoading={sendingManualEmail}
-                                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
-                                    >
-                                        <Mail className="w-4 h-4 mr-2" /> Send Invitation Email
-                                    </Button>
-                                    {!manualStudent.email && (
-                                        <p className="text-xs text-red-500 mt-2 text-center">Cannot send email: No email address on file.</p>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* ⑤ Real-Time Sync (Apps Script) */}
-                    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-                        <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
-                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/10 text-amber-600 text-xs font-bold">5</span>
-                            <Code className="w-4 h-4 text-amber-600" />
-                            <h2 className="text-sm font-semibold text-card-foreground">Real-Time Sync (Google Apps Script)</h2>
-                        </div>
-                        <div className="p-5">
-                            <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-4 mb-5">
-                                <p className="text-sm text-amber-800">
-                                    To get real-time updates from your Google Sheet, add the provided script and configure these values:
-                                </p>
-                            </div>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-xs font-semibold text-amber-900 uppercase tracking-wider block mb-1.5">Webhook URL</label>
-                                    <div className="flex gap-2">
-                                        <code className="flex-1 px-3 py-2 bg-white border border-amber-200 rounded-lg text-xs font-mono text-amber-800 overflow-x-auto whitespace-nowrap">
-                                            {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/participants` : '/api/webhooks/participants'}
-                                        </code>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="shrink-0 border-amber-200 hover:bg-amber-100 text-amber-800"
-                                            onClick={() => {
-                                                if (typeof window !== 'undefined') {
-                                                    navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/participants`);
-                                                    setStatus({ type: 'success', msg: 'URL copied!' });
-                                                }
-                                            }}
-                                        >
-                                            <Copy className="w-3 h-3" />
-                                        </Button>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-semibold text-amber-900 uppercase tracking-wider block mb-1.5">Event ID</label>
-                                    <div className="flex gap-2">
-                                        <code className="flex-1 px-3 py-2 bg-white border border-amber-200 rounded-lg text-xs font-mono text-amber-800">
-                                            {eventId}
-                                        </code>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="shrink-0 border-amber-200 hover:bg-amber-100 text-amber-800"
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(eventId);
-                                                setStatus({ type: 'success', msg: 'Event ID copied!' });
-                                            }}
-                                        >
-                                            <Copy className="w-3 h-3" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── Right Column (Sticky) ── */}
-                <div className="space-y-5 xl:sticky xl:top-4 xl:self-start">
-                    {/* Coordinator Management */}
-                    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-                        <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
-                            <Users className="w-4 h-4 text-blue-600" />
-                            <h2 className="text-sm font-semibold text-card-foreground">Event Coordinators</h2>
-                        </div>
-
-                        <div className="p-5">
-                            {/* Add Coordinator */}
-                            <div className="space-y-3 mb-6">
-                                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Coordinator by Roll No</label>
-                                <div className="flex gap-2">
-                                    <div className="relative flex-1">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                                        <input
-                                            type="text"
-                                            placeholder="Enter Roll No"
-                                            value={searchRollNo}
-                                            onChange={(e) => setSearchRollNo(e.target.value.toUpperCase())}
-                                            className="w-full pl-9 pr-3 py-2.5 text-sm bg-background border border-input rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                            onKeyDown={(e) => e.key === 'Enter' && handleSearchCoordinator()}
-                                        />
-                                    </div>
-                                    <Button
-                                        onClick={handleSearchCoordinator}
-                                        disabled={searchingUser || !searchRollNo}
-                                        isLoading={searchingUser}
-                                        variant="outline"
-                                        size="sm"
-                                    >
-                                        Find
-                                    </Button>
-                                </div>
-
-                                {foundUser && (
-                                    <div className={`border p-3 rounded-lg flex items-center justify-between animate-in fade-in ${foundUser.source === 'participant' ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-100'
-                                        }`}>
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <p className={`text-sm font-bold ${foundUser.source === 'participant' ? 'text-amber-900' : 'text-blue-900'
-                                                    }`}>{foundUser.rollNo}</p>
-                                                {foundUser.source === 'participant' && (
-                                                    <span className="text-[10px] bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-full font-medium">
-                                                        From Sheet
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <p className={`text-xs ${foundUser.source === 'participant' ? 'text-amber-700' : 'text-blue-700'
-                                                }`}>
-                                                {foundUser.name ? `${foundUser.name} • ` : ''}{selectedDepartment || foundUser.department}
-                                            </p>
-
-                                            {/* Department Selector for Participants (since it might be missing or UNKNOWN) */}
-                                            {foundUser.source === 'participant' && (
-                                                <div className="mt-2">
-                                                    <select
-                                                        value={selectedDepartment}
-                                                        onChange={(e) => setSelectedDepartment(e.target.value)}
-                                                        className="text-xs p-1 border rounded bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                                                    >
-                                                        <option value="">Select Dept</option>
-                                                        {DEPARTMENTS.map(dept => (
-                                                            <option key={dept} value={dept}>{dept}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <Button
-                                            size="sm"
-                                            onClick={handleAddCoordinator}
-                                            disabled={addingCoordinator}
-                                            isLoading={addingCoordinator}
-                                            className={`h-8 ${foundUser.source === 'participant'
-                                                ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                                                : 'bg-blue-600 hover:bg-blue-700'
-                                                }`}
-                                        >
-                                            {foundUser.source === 'participant' ? 'Create & Add' : 'Add'}
-                                        </Button>
-                                    </div>
-                                )}
-                            </div>
-
-                        </div>
-                        {/* Coordinator List - inside p-5 wrapper continues below */}
-                        <div className="mt-5 border-t border-border pt-5 space-y-3 px-5 pb-5">
-                            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Assigned Coordinators</h3>
-                            {fetchingCoordinators ? (
-                                <div className="flex items-center justify-center py-8 text-muted-foreground">
-                                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                                    <span className="text-sm">Loading coordinators...</span>
-                                </div>
-                            ) : coordinators.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-8 text-center border-2 border-dashed border-border rounded-xl">
-                                    <Users className="w-8 h-8 text-muted-foreground/40 mb-2" />
-                                    <p className="text-sm text-muted-foreground">No coordinators assigned yet.</p>
-                                    <p className="text-xs text-muted-foreground/60 mt-0.5">Search by Roll No above to add one.</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {coordinators.map(c => {
-                                        const initials = (c.rollNo || '?').slice(-2).toUpperCase();
-                                        const isAll = c.allowedDepartments.includes('ALL');
-                                        return (
-                                            <div key={c.id} className="border border-border rounded-xl overflow-hidden bg-background shadow-sm">
-                                                {/* Coordinator Header */}
-                                                <div className="flex items-center gap-3 px-4 py-3 bg-muted/20">
-                                                    <div className="flex items-center justify-center w-9 h-9 rounded-full bg-blue-100 text-blue-600 shrink-0">
-                                                        <User className="w-4 h-4" />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="font-bold text-sm text-foreground leading-tight">{c.rollNo}</p>
-                                                        <p className="text-xs text-muted-foreground truncate">{c.department || 'Unknown Dept'}</p>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => handleRemoveCoordinator(c.id)}
-                                                        className="p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
-                                                        title="Remove coordinator"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-
-                                                {/* Permissions */}
-                                                <div className="px-4 py-3 space-y-3">
-                                                    <div>
-                                                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2">Scan Permission</p>
-                                                        {/* Pill toggle */}
-                                                        <div className="flex gap-1.5">
-                                                            <button
-                                                                onClick={() => handleUpdatePermission(c.id, ['ALL'])}
-                                                                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-all ${isAll
-                                                                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                                                                    : 'bg-background text-muted-foreground border-border hover:border-blue-300 hover:text-blue-600'
-                                                                    }`}
-                                                            >
-                                                                All Depts
-                                                            </button>
-                                                            <button
-                                                                onClick={() => {
-                                                                    if (isAll) handleUpdatePermission(c.id, [c.department]);
-                                                                }}
-                                                                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-all ${!isAll
-                                                                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                                                                    : 'bg-background text-muted-foreground border-border hover:border-blue-300 hover:text-blue-600'
-                                                                    }`}
-                                                            >
-                                                                Custom
-                                                            </button>
-                                                        </div>
-                                                    </div>
-
-                                                    {!isAll && (
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {DEPARTMENTS.map(dept => {
-                                                                const isAllowed = c.allowedDepartments.includes(dept);
-                                                                return (
-                                                                    <button
-                                                                        key={dept}
-                                                                        onClick={() => {
-                                                                            const newAllowed = isAllowed
-                                                                                ? c.allowedDepartments.filter(d => d !== dept)
-                                                                                : [...c.allowedDepartments, dept];
-                                                                            handleUpdatePermission(c.id, newAllowed);
-                                                                        }}
-                                                                        className={`px-2.5 py-1 text-[10px] font-semibold rounded-full border transition-all ${isAllowed
-                                                                            ? 'bg-blue-100 text-blue-700 border-blue-300'
-                                                                            : 'bg-muted/40 text-muted-foreground border-border hover:border-blue-300 hover:text-blue-500'
-                                                                            }`}
-                                                                    >
-                                                                        {dept}
-                                                                    </button>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-                        <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
-                            <Mail className="w-4 h-4 text-purple-600" />
-                            <h2 className="text-sm font-semibold text-card-foreground">Send Token Emails</h2>
-                        </div>
-                        <div className="p-5">
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-foreground mb-2">Select Token Types for Batch</label>
-                                    <div className="flex flex-wrap items-center gap-3">
-                                        {[...PREDEFINED_MEALS, ...customMealsList].map(meal => (
-                                            <label key={meal} className="flex items-center gap-2 p-2 px-3 bg-muted/20 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={emailSelectedMeals.includes(meal)}
-                                                    onChange={(e) => {
-                                                        if (e.target.checked) setEmailSelectedMeals([...emailSelectedMeals, meal]);
-                                                        else setEmailSelectedMeals(emailSelectedMeals.filter(m => m !== meal));
-                                                    }}
-                                                    className="rounded text-purple-600 focus:ring-purple-500 w-4 h-4"
-                                                />
-                                                <span className="text-sm font-medium">{meal}</span>
-                                            </label>
-                                        ))}
-
-                                        <div className="flex items-center gap-2">
-                                            {!showCustomMealInput ? (
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="h-9 gap-1.5 text-purple-700 bg-background border-purple-200 hover:bg-purple-50/50"
-                                                    onClick={() => setShowCustomMealInput(true)}
-                                                >
-                                                    <Plus className="w-4 h-4" /> Add Meal
-                                                </Button>
-                                            ) : (
-                                                <div className="flex items-center gap-2">
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Custom Meal..."
-                                                        value={customMealInput}
-                                                        onChange={(e) => setCustomMealInput(e.target.value)}
-                                                        autoFocus
-                                                        className="h-9 px-3 text-sm flex-1 min-w-[140px] bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') {
-                                                                const val = customMealInput.trim();
-                                                                if (val && !customMealsList.includes(val) && !PREDEFINED_MEALS.includes(val)) {
-                                                                    setCustomMealsList([...customMealsList, val]);
-                                                                    setEmailSelectedMeals(prev => [...prev, val]);
-                                                                }
-                                                                setCustomMealInput('');
-                                                                setShowCustomMealInput(false);
-                                                            }
-                                                        }}
-                                                    />
-                                                    <Button
-                                                        size="sm"
-                                                        className="h-9 bg-purple-600 hover:bg-purple-700 px-3"
-                                                        onClick={() => {
-                                                            const val = customMealInput.trim();
-                                                            if (val && !customMealsList.includes(val) && !PREDEFINED_MEALS.includes(val)) {
-                                                                setCustomMealsList([...customMealsList, val]);
-                                                                setEmailSelectedMeals(prev => [...prev, val]);
-                                                            }
-                                                            setCustomMealInput('');
-                                                            setShowCustomMealInput(false);
-                                                        }}
-                                                    >
-                                                        Add
-                                                    </Button>
-                                                    <Button variant="ghost" size="sm" className="h-9 px-2 text-muted-foreground" onClick={() => { setCustomMealInput(''); setShowCustomMealInput(false); }}>
-                                                        Cancel
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <Button
-                                    onClick={async () => {
-                                        const finalEmailMeals = [...emailSelectedMeals];
-
-                                        if (finalEmailMeals.length === 0) {
-                                            setStatus({ type: 'error', msg: 'Please select at least one token type to send.' });
-                                            return;
-                                        }
-
-                                        setUploading(true);
-                                        setStatus({ type: '', msg: '' });
-                                        setEmailProgress(null);
-                                        setEmailErrors([]);
-
-                                        const { success, failed } = await runEmailBatchSequence(finalEmailMeals);
-
-                                        setUploading(false);
-                                        if (success > 0 || failed > 0) {
-                                            setStatus({ type: 'success', msg: `Batch sequence completed. Sent: ${success}, Failed: ${failed}` });
-                                        } else {
-                                            setStatus({ type: 'error', msg: 'No pending emails were found or processed.' });
-                                        }
-
-                                        // Let the progress UI persist for a moment or until cleared by status
-                                        setEmailProgress({
-                                            total: success + failed,
-                                            processed: success + failed,
-                                            success: success,
-                                            failed: failed
-                                        });
-                                    }}
-                                    disabled={uploading}
-                                    isLoading={uploading}
-                                    className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-                                >
-                                    {uploading ? 'Sending...' : 'Send Token Emails'}
-                                </Button>
-
-                                {emailProgress && (
-                                    <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-100 animate-in fade-in slide-in-from-top-2">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className="text-sm font-semibold text-purple-900">Sending Emails...</span>
-                                            <span className="text-xs font-mono text-purple-700">
-                                                {emailProgress.processed} / {emailProgress.total}
-                                            </span>
-                                        </div>
-                                        <div className="w-full bg-purple-200 rounded-full h-2.5 mb-2 overflow-hidden">
-                                            <div
-                                                className="bg-purple-600 h-2.5 rounded-full transition-all duration-300 ease-out"
-                                                style={{ width: `${(emailProgress.processed / Math.max(emailProgress.total, 1)) * 100}%` }}
-                                            ></div>
-                                        </div>
-                                        <div className="flex justify-between text-xs text-purple-600">
-                                            <span className="text-green-600 font-medium">Success: {emailProgress.success}</span>
-                                            <span className="text-red-500 font-medium">Failed: {emailProgress.failed}</span>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {emailErrors.length > 0 && (
-                                    <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg max-h-48 overflow-y-auto">
-                                        <h4 className="text-xs font-bold text-red-700 uppercase mb-2">Error Details</h4>
-                                        <div className="space-y-2">
-                                            {emailErrors.map((err, i) => (
-                                                <div key={i} className="text-[10px] text-red-600 font-mono bg-white p-2 rounded border border-red-50 leading-relaxed">
-                                                    {err}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div >
+        </div>
     );
 }

@@ -1,5 +1,13 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+export interface IFormField {
+    id: string;
+    type: 'short_answer' | 'paragraph' | 'multiple_choice' | 'checkboxes' | 'dropdown' | 'file_upload';
+    label: string;
+    required: boolean;
+    options?: string[];
+}
+
 export interface IEvent extends Document {
     name: string;
     eventType?: 'special' | 'daily'; // To differentiate event types
@@ -13,9 +21,19 @@ export interface IEvent extends Document {
     driveFolderId?: string;
     isActive: boolean;
     adminId: string;
+    isDynamicForm?: boolean;
+    formFields?: IFormField[];
     createdAt: Date;
     updatedAt: Date;
 }
+
+const FormFieldSchema = new Schema({
+    id: { type: String, required: true },
+    type: { type: String, enum: ['short_answer', 'paragraph', 'multiple_choice', 'checkboxes', 'dropdown', 'file_upload'], required: true },
+    label: { type: String, required: true },
+    required: { type: Boolean, default: false },
+    options: [{ type: String }]
+});
 
 const EventSchema: Schema = new Schema({
     name: { type: String, required: true },
@@ -30,6 +48,8 @@ const EventSchema: Schema = new Schema({
     driveFolderId: { type: String },
     isActive: { type: Boolean, default: true },
     adminId: { type: String, required: true, index: true },
+    isDynamicForm: { type: Boolean, default: false },
+    formFields: [FormFieldSchema],
 }, {
     timestamps: true
 });

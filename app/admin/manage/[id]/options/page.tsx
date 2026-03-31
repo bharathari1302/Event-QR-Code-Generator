@@ -2,7 +2,7 @@ import { Metadata } from 'next';
 import ClientPage from './ClientPage';
 
 export const metadata: Metadata = {
-    title: 'Event Food Stats',
+    title: 'Manage Event Options',
 };
 
 export default function Page() {

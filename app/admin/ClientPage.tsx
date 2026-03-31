@@ -33,7 +33,7 @@ export default function AdminPage() {
 
     const [stats, setStats] = useState({
         totalEvents: 0,
-        totalParticipants: 0,
+        totalStudents: 0,
         totalUsers: 0,
         loading: true
     });
@@ -45,7 +45,7 @@ export default function AdminPage() {
                 .then(data => {
                     setStats({
                         totalEvents: data.totalEvents || 0,
-                        totalParticipants: data.totalParticipants || 0,
+                        totalStudents: data.totalStudents || 0,
                         totalUsers: data.totalUsers || 0,
                         loading: false
                     });
@@ -71,19 +71,19 @@ export default function AdminPage() {
                     label="Total Events"
                     value={stats.loading ? "..." : stats.totalEvents}
                     icon={CalendarDays}
-                    className="border-l-4 border-l-blue-500"
+                    className="border-l-4 border-l-primary"
                 />
                 <StatCard
-                    label="Total Participants"
-                    value={stats.loading ? "..." : stats.totalParticipants.toLocaleString()}
+                    label="Total Students"
+                    value={stats.loading ? "..." : stats.totalStudents.toLocaleString()}
                     icon={TrendingUp}
-                    className="border-l-4 border-l-green-500"
+                    className="border-l-4 border-l-secondary"
                 />
                 <StatCard
                     label="System Users"
                     value={stats.loading ? "..." : stats.totalUsers}
                     icon={Users}
-                    className="border-l-4 border-l-purple-500"
+                    className="border-l-4 border-l-foreground"
                 />
             </div>
 
@@ -135,11 +135,11 @@ export default function AdminPage() {
                     </Link>
 
                     {/* Food Scanner Card */}
-                    <Link href="/food-scanner" className="group relative overflow-hidden rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md hover:border-orange-500/20">
+                    <Link href="/food-scanner" className="group relative overflow-hidden rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md hover:border-secondary/30">
                         <div className="flex items-start justify-between">
                             <div className="space-y-4">
-                                <div className="p-3 bg-orange-500/10 w-fit rounded-lg">
-                                    <Activity className="h-6 w-6 text-orange-500" />
+                                <div className="p-3 bg-secondary/15 w-fit rounded-lg">
+                                    <Activity className="h-6 w-6 text-secondary" />
                                 </div>
                                 <div>
                                     <h3 className="font-semibold text-lg text-card-foreground">Food Scanner</h3>
@@ -147,11 +147,11 @@ export default function AdminPage() {
                                         Scan meal coupons and verify student food tokens.
                                     </p>
                                 </div>
-                                <div className="text-orange-500 font-medium flex items-center group-hover:translate-x-1 transition-transform">
+                                <div className="text-secondary font-medium flex items-center group-hover:translate-x-1 transition-transform">
                                     Open Scanner <ArrowRight className="ml-2 h-4 w-4" />
                                 </div>
                             </div>
-                            <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-secondary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
                     </Link>
 
