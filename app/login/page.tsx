@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
-import { FaUserShield, FaIdCard, FaSpinner, FaLock, FaEnvelope } from 'react-icons/fa';
+import { signIn } from 'next-auth/react';
+import { FaUserShield, FaIdCard, FaSpinner, FaLock, FaEnvelope, FaGoogle } from 'react-icons/fa';
 
 export default function LoginPage() {
     const [activeTab, setActiveTab] = useState<'admin' | 'coordinator'>('admin');
@@ -173,6 +174,21 @@ export default function LoginPage() {
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                                 {loading ? <FaSpinner className="animate-spin" /> : 'Log In as Admin'}
+                            </button>
+
+                            <div className="relative flex items-center py-2">
+                                <div className="flex-grow border-t border-gray-300"></div>
+                                <span className="flex-shrink-0 mx-4 text-gray-400 text-xs font-semibold">OR</span>
+                                <div className="flex-grow border-t border-gray-300"></div>
+                            </div>
+                            
+                            <button
+                                type="button"
+                                onClick={() => signIn('google', { callbackUrl: '/admin' })}
+                                className="w-full bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3.5 rounded-lg border border-gray-300 shadow-sm hover:shadow transition-all flex items-center justify-center gap-3"
+                            >
+                                <FaGoogle className="text-red-500" />
+                                Sign in with Google (Drive Access)
                             </button>
                         </form>
                     ) : (

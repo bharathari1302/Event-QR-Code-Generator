@@ -20,6 +20,7 @@ export const metadata: Metadata = {
 };
 
 import { AuthProvider } from "./context/AuthContext";
+import SessionProviderWrapper from "./components/SessionProviderWrapper";
 
 export default function RootLayout({
   children,
@@ -31,15 +32,17 @@ export default function RootLayout({
       <body
         className={`${inter.variable} font-sans antialiased bg-background text-foreground`}
       >
-        <AuthProvider>
-          <DevToolsHider />
-          <div className="min-h-screen flex flex-col">
-            <main className="flex-1">{children}</main>
-            <footer className="w-full py-3 text-center text-xs text-gray-400 bg-gray-50 border-t border-gray-100">
-              Developed by <span className="font-semibold text-gray-600">BHARAT HARI S</span> — AIML
-            </footer>
-          </div>
-        </AuthProvider>
+        <SessionProviderWrapper>
+          <AuthProvider>
+            <DevToolsHider />
+            <div className="min-h-screen flex flex-col">
+              <main className="flex-1">{children}</main>
+              <footer className="w-full py-3 text-center text-xs text-gray-400 bg-gray-50 border-t border-gray-100">
+                Developed by <span className="font-semibold text-gray-600">BHARAT HARI S</span> — AIML
+              </footer>
+            </div>
+          </AuthProvider>
+        </SessionProviderWrapper>
       </body>
     </html>
   );
