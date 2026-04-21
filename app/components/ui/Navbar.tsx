@@ -72,28 +72,28 @@ export function Navbar({ title }: NavbarProps) {
     const pageTitle = contentHeading || getPageTitle(pathname, title);
 
     return (
-        <header className="h-[80px] border-b border-border bg-card/95 backdrop-blur-md px-6 md:px-8 flex items-center justify-between sticky top-0 z-30">
+        <header className="h-[72px] border-b border-gray-200/60 bg-white/80 backdrop-blur-xl px-6 md:px-8 flex items-center justify-between sticky top-0 z-30">
             <div>
-                <h2 className="text-[1.35rem] font-semibold text-foreground tracking-tight leading-tight">
+                <h2 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">
                     {pageTitle}
                 </h2>
             </div>
 
             <div className="flex items-center gap-4">
-                <div className="h-8 w-px bg-border/60" />
+                <div className="h-8 w-px bg-gray-200/60" />
 
                 <div className="flex items-center gap-3">
                     <div className="text-right hidden sm:block">
-                        <p className="text-sm font-medium leading-none text-foreground">{user?.displayName || (role ? role.charAt(0).toUpperCase() + role.slice(1) : 'User')}</p>
+                        <p className="text-sm font-semibold leading-none text-slate-800">{user?.displayName || (role ? role.charAt(0).toUpperCase() + role.slice(1) : 'User')}</p>
                         {role !== 'admin' && role !== 'manager' && department && (
-                            <p className="text-xs text-muted-foreground mt-1">Dept: {department}</p>
+                            <p className="text-[11px] text-slate-500 mt-1">Dept: {department}</p>
                         )}
                         {(role === 'admin' || role === 'manager') && (
-                            <p className="text-xs text-muted-foreground mt-1">{role.toUpperCase()}</p>
+                            <p className="text-[10px] text-indigo-600 mt-1 font-bold tracking-wider uppercase">{role}</p>
                         )}
                     </div>
-                    <div className="h-9 w-9 bg-primary/10 rounded-full flex items-center justify-center border border-primary/20">
-                        <UserCircle className="w-6 h-6 text-primary" />
+                    <div className="h-9 w-9 bg-gradient-to-br from-indigo-500/10 to-violet-500/10 rounded-full flex items-center justify-center border border-indigo-200/40">
+                        <UserCircle className="w-5 h-5 text-indigo-600" />
                     </div>
                 </div>
             </div>

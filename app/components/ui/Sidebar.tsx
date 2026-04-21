@@ -27,9 +27,7 @@ export function Sidebar() {
 
     if (!user) return null;
 
-    // Fix: Exact match for root paths (dashboard), startsWith for sub-paths
     const isActive = (path: string) => {
-        // Special case for 'Events' parent
         if (path === '/admin/events' && pathname.includes('/admin/manage/')) {
             return true;
         }
@@ -69,7 +67,7 @@ export function Sidebar() {
             {/* Mobile Trigger */}
             <button
                 onClick={toggleSidebar}
-                className="md:hidden fixed top-4 left-4 z-50 p-2 bg-card text-foreground border border-border rounded-lg shadow-sm hover:bg-muted transition-colors"
+                className="md:hidden fixed top-4 left-4 z-50 p-2.5 bg-slate-900 text-white border border-white/10 rounded-xl shadow-lg hover:bg-slate-800 transition-all duration-200"
                 aria-label="Toggle Menu"
             >
                 {isOpen ? <X size={20} /> : <Menu size={20} />}
@@ -85,25 +83,25 @@ export function Sidebar() {
 
             {/* Sidebar Content */}
             <aside className={cn(
-                "fixed left-0 top-0 h-screen w-64 bg-card border-r border-border flex flex-col z-50 transition-transform duration-300 ease-in-out md:translate-x-0 shadow-sm",
+                "fixed left-0 top-0 h-screen w-64 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 flex flex-col z-50 transition-transform duration-300 ease-in-out md:translate-x-0 shadow-2xl",
                 isOpen ? "translate-x-0" : "-translate-x-full"
             )}>
                 {/* Logo Area */}
-                <div className="h-20 flex items-center gap-3 px-6 border-b border-border bg-muted/50">
-                    <div className="w-10 h-10 flex items-center justify-center">
-                        <img src="/logo.png" alt="Q-Swift" className="w-10 h-10 object-contain" />
+                <div className="h-20 flex items-center gap-3 px-5 border-b border-white/[0.06]">
+                    <div className="w-11 h-11 flex items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 p-1 shadow-lg">
+                        <img src="/logo.png" alt="Q-Swift" className="w-full h-full object-contain rounded-lg" />
                     </div>
                     <div className="flex flex-col">
-                        <h1 className="font-bold text-lg leading-tight text-foreground tracking-tight">Q-Swift</h1>
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                        <h1 className="font-bold text-lg leading-tight text-white tracking-tight">Q-Swift</h1>
+                        <span className="text-[10px] text-indigo-300/70 uppercase tracking-wider font-semibold">
                             {role === 'admin' ? 'Administration' : role?.toUpperCase()}
                         </span>
                     </div>
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1.5 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
-                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4 px-2">
+                <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
+                    <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.15em] mb-4 px-3">
                         Menu
                     </div>
                     {links.map((link) => {
@@ -114,19 +112,19 @@ export function Sidebar() {
                                 href={link.href}
                                 onClick={() => setIsOpen(false)}
                                 className={cn(
-                                    "relative flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group text-sm font-medium border border-transparent",
+                                    "relative flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group text-sm font-medium",
                                     active
-                                        ? "bg-primary text-primary-foreground font-semibold shadow-sm border-primary/20"
-                                        : "hover:bg-muted hover:text-foreground text-muted-foreground"
+                                        ? "bg-gradient-to-r from-indigo-600/90 to-violet-600/90 text-white font-semibold shadow-lg shadow-indigo-500/20"
+                                        : "hover:bg-white/[0.06] text-slate-400 hover:text-white"
                                 )}
                             >
                                 <link.icon className={cn(
-                                    "w-5 h-5 transition-colors",
-                                    active ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
+                                    "w-[18px] h-[18px] transition-colors flex-shrink-0",
+                                    active ? "text-white" : "text-slate-500 group-hover:text-indigo-400"
                                 )} />
                                 <span>{link.name}</span>
                                 {active && (
-                                    <ChevronRight className="w-4 h-4 ml-auto text-secondary" />
+                                    <ChevronRight className="w-4 h-4 ml-auto text-white/60" />
                                 )}
                             </Link>
                         );
@@ -134,26 +132,26 @@ export function Sidebar() {
                 </nav>
 
                 {/* User Profile & Logout */}
-                <div className="p-4 border-t border-border bg-muted/40">
+                <div className="p-4 border-t border-white/[0.06]">
                     <div className="mb-4 px-2 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-muted border border-border flex items-center justify-center text-muted-foreground">
-                            <UserCircle className="w-6 h-6" />
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500/20 to-violet-500/20 border border-white/10 flex items-center justify-center text-slate-400">
+                            <UserCircle className="w-5 h-5" />
                         </div>
                         <div className="flex-1 overflow-hidden">
-                            <p className="text-sm font-medium text-foreground truncate">{user.email?.split('@')[0] || 'User'}</p>
-                            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                            <p className="text-sm font-medium text-white/90 truncate">{user.email?.split('@')[0] || 'User'}</p>
+                            <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
                         </div>
                     </div>
 
                     <button
                         onClick={() => logout()}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-card hover:bg-secondary/20 hover:text-primary text-muted-foreground transition-all text-sm font-medium border border-border shadow-sm"
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white/[0.04] hover:bg-red-500/10 hover:text-red-400 text-slate-400 transition-all text-sm font-medium border border-white/[0.06] hover:border-red-500/20"
                     >
                         <LogOut className="w-4 h-4" />
                         <span>Sign Out</span>
                     </button>
 
-                    <div className="mt-4 text-[10px] text-center text-muted-foreground/60">
+                    <div className="mt-4 text-[10px] text-center text-slate-600">
                         v1.0.0 • Developed by BHARAT HARI S - AIML
                     </div>
                 </div>

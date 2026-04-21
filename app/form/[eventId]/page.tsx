@@ -27,7 +27,6 @@ export default function PublicFormPage() {
     const [globalStudent, setGlobalStudent] = useState<any>(null);
     const [verifying, setVerifying] = useState(false);
 
-    // Form state: key = field.id, value = string | string[] (base64 for files)
     const [answers, setAnswers] = useState<Record<string, any>>({});
 
     useEffect(() => {
@@ -62,7 +61,6 @@ export default function PublicFormPage() {
             const data = await res.json();
             if (data.success && data.student) {
                 setGlobalStudent(data.student);
-                // Pre-fill image if global profile has one
                 if (data.student.photo) {
                     const nextAnswers = { ...answers };
                     event?.formFields?.forEach((field: FormField) => {
@@ -82,11 +80,8 @@ export default function PublicFormPage() {
         }
     };
 
-    // Compress File and Convert to Base64
     const handleFileUpload = async (fieldId: string, file: File) => {
         if (!file.type.startsWith('image/')) {
-            // For non-images, just convert to base64 without compression 
-            // Warning: large files might fail, so best to restrict to images
             const reader = new FileReader();
             reader.onloadend = () => {
                 setAnswers(prev => ({ ...prev, [fieldId]: reader.result as string }));
@@ -95,7 +90,6 @@ export default function PublicFormPage() {
             return;
         }
 
-        // Compress Image
         const reader = new FileReader();
         reader.onload = (e) => {
             const img = new Image();
@@ -122,7 +116,6 @@ export default function PublicFormPage() {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx?.drawImage(img, 0, 0, width, height);
-                // Compress heavily for DB storage (0.6 quality)
                 const dataURL = canvas.toDataURL('image/jpeg', 0.6);
                 setAnswers(prev => ({ ...prev, [fieldId]: dataURL }));
             };
@@ -173,18 +166,26 @@ export default function PublicFormPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+                <div className="flex flex-col items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center animate-pulse">
+                        <Loader2 className="w-6 h-6 animate-spin text-white" />
+                    </div>
+                    <p className="text-slate-400 text-sm font-medium">Loading form...</p>
+                </div>
             </div>
         );
     }
 
     if (error && !event) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-                <div className="bg-white p-8 rounded-xl shadow-lg max-w-md w-full text-center">
-                    <h1 className="text-2xl font-bold text-red-600 mb-2">Error</h1>
-                    <p className="text-gray-600">{error}</p>
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+                <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center border border-gray-200/60">
+                    <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <span className="text-3xl">❌</span>
+                    </div>
+                    <h1 className="text-2xl font-black text-red-600 mb-2">Error</h1>
+                    <p className="text-slate-500">{error}</p>
                 </div>
             </div>
         );
@@ -192,90 +193,98 @@ export default function PublicFormPage() {
 
     if (submitted) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-                <div className="bg-white p-8 rounded-xl shadow-lg max-w-md w-full text-center space-y-4">
-                    <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto" />
-                    <h1 className="text-2xl font-bold text-gray-900">Success!</h1>
-                    <p className="text-gray-600">Your registration has been submitted successfully.</p>
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+                <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center space-y-4 border border-gray-200/60 animate-scale-in">
+                    <div className="w-20 h-20 bg-gradient-to-br from-emerald-50 to-green-50 rounded-full flex items-center justify-center mx-auto">
+                        <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+                    </div>
+                    <h1 className="text-2xl font-black text-slate-800">Success!</h1>
+                    <p className="text-slate-500">Your registration has been submitted successfully.</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-2xl mx-auto space-y-8">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-2xl mx-auto space-y-6">
                 {/* Header */}
-                <div className="bg-white rounded-t-xl overflow-hidden shadow">
-                    <div className="h-3 bg-primary w-full" />
+                <div className="bg-white rounded-3xl overflow-hidden shadow-lg border border-gray-200/60 animate-fade-in-up">
+                    <div className="h-2 bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-500 w-full" />
                     <div className="p-8 space-y-2">
-                        <h1 className="text-3xl font-bold text-gray-900">{event?.name}</h1>
+                        <h1 className="text-3xl font-black text-slate-800 tracking-tight">{event?.name}</h1>
                         {event?.description && (
-                            <p className="text-gray-600 mt-2">{event.description}</p>
+                            <p className="text-slate-500 mt-2">{event.description}</p>
                         )}
-                        {event?.venue && (
-                            <div className="text-sm font-medium text-gray-500 mt-4">
-                                Venue: {event.venue}
+                        <div className="flex flex-wrap gap-3 mt-4">
+                            {event?.venue && (
+                                <div className="text-sm font-medium text-slate-500 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                                    📍 {event.venue}
+                                </div>
+                            )}
+                            <div className="text-sm font-medium text-slate-500 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                                📅 {new Date(event?.date).toLocaleDateString()}
                             </div>
-                        )}
-                        <div className="text-sm font-medium text-gray-500">
-                            Date: {new Date(event?.date).toLocaleDateString()}
                         </div>
                     </div>
                 </div>
 
                 {error && (
-                    <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm font-medium border border-red-200">
+                    <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm font-medium border border-red-200/60 animate-fade-in">
                         {error}
                     </div>
                 )}
 
                 {/* Step 1: Roll No Verification */}
                 {!globalStudent ? (
-                    <form onSubmit={handleVerifyRollNo} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
-                        <label className="block text-base font-medium text-gray-900">
+                    <form onSubmit={handleVerifyRollNo} className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200/60 space-y-5 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+                        <label className="block text-base font-bold text-slate-800">
                             Enter your Roll Number <span className="text-red-500">*</span>
                         </label>
                         <input
                             required
                             type="text"
                             placeholder="e.g. 21BCE100"
-                            className="w-full border-b-2 border-gray-200 focus:border-primary bg-transparent text-gray-900 p-2 outline-none uppercase font-mono"
+                            className="w-full border-b-2 border-gray-200 focus:border-indigo-500 bg-transparent text-slate-800 p-3 outline-none uppercase font-mono text-lg transition-colors"
                             value={rollNo}
                             onChange={(e) => setRollNo(e.target.value.toUpperCase())}
                         />
-                        <Button type="submit" disabled={verifying} isLoading={verifying} className="w-full mt-4">
+                        <Button type="submit" variant="gradient" disabled={verifying} isLoading={verifying} className="w-full mt-4">
                             Verify & Continue
                         </Button>
                     </form>
                 ) : (
                     <>
-                        {/* Step 2: Global Student Profile Card & Dynamic Forms */}
-                        <div className="bg-blue-50/50 p-6 rounded-xl shadow-sm border border-blue-100 flex flex-col sm:flex-row gap-4 items-center">
+                        {/* Student Profile Card */}
+                        <div className="bg-gradient-to-r from-indigo-50/80 to-violet-50/80 p-6 rounded-3xl shadow-sm border border-indigo-100/60 flex flex-col sm:flex-row gap-4 items-center animate-fade-in-up" style={{ animationDelay: '100ms' }}>
                             {globalStudent.photo ? (
-                                <img src={globalStudent.photo} alt={globalStudent.name} className="w-16 h-16 rounded-full object-cover border-2 border-primary shadow-sm" />
+                                <img src={globalStudent.photo} alt={globalStudent.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-md" />
                             ) : (
-                                <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xl shadow-sm">
+                                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white font-black text-xl shadow-md">
                                     {globalStudent.name.charAt(0)}
                                 </div>
                             )}
                             <div className="flex-1 text-center sm:text-left">
-                                <h2 className="text-xl font-bold text-gray-900">{globalStudent.name}</h2>
-                                <div className="text-sm text-gray-600 flex flex-wrap gap-2 mt-1 justify-center sm:justify-start">
-                                    <span className="font-mono font-medium text-blue-800">{rollNo}</span>
-                                    {globalStudent.department && <span>• {globalStudent.department}</span>}
+                                <h2 className="text-xl font-black text-slate-800">{globalStudent.name}</h2>
+                                <div className="text-sm text-slate-500 flex flex-wrap gap-2 mt-1 justify-center sm:justify-start">
+                                    <span className="font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg">{rollNo}</span>
+                                    {globalStudent.department && <span className="text-slate-400">• {globalStudent.department}</span>}
                                 </div>
                             </div>
-                            <div className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-semibold shrink-0">
-                                Verified Profile ✓
+                            <div className="text-xs bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full font-bold shrink-0 border border-emerald-200/40">
+                                Verified ✓
                             </div>
                         </div>
 
                         {/* Form Elements */}
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                    {event?.formFields?.map((field: FormField) => (
-                        <div key={field.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
-                            <label className="block text-base font-medium text-gray-900">
+                        <form onSubmit={handleSubmit} className="space-y-5">
+                    {event?.formFields?.map((field: FormField, idx: number) => (
+                        <div 
+                            key={field.id} 
+                            className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200/60 space-y-4 animate-fade-in-up"
+                            style={{ animationDelay: `${(idx + 2) * 100}ms`, opacity: 0 }}
+                        >
+                            <label className="block text-base font-bold text-slate-800">
                                 {field.label} {field.required && <span className="text-red-500">*</span>}
                             </label>
 
@@ -283,7 +292,7 @@ export default function PublicFormPage() {
                                 <input
                                     type="text"
                                     required={field.required}
-                                    className="w-full border-b-2 border-gray-200 focus:border-primary bg-transparent text-gray-900 p-2 outline-none transition-colors"
+                                    className="w-full border-b-2 border-gray-200 focus:border-indigo-500 bg-transparent text-slate-800 p-2 outline-none transition-colors"
                                     placeholder="Your answer"
                                     value={answers[field.id] || ''}
                                     onChange={e => setAnswers({ ...answers, [field.id]: e.target.value })}
@@ -293,7 +302,7 @@ export default function PublicFormPage() {
                             {field.type === 'paragraph' && (
                                 <textarea
                                     required={field.required}
-                                    className="w-full border-b-2 border-gray-200 focus:border-primary bg-transparent text-gray-900 p-2 outline-none transition-colors resize-y min-h-[100px]"
+                                    className="w-full border-b-2 border-gray-200 focus:border-indigo-500 bg-transparent text-slate-800 p-2 outline-none transition-colors resize-y min-h-[100px]"
                                     placeholder="Your answer"
                                     value={answers[field.id] || ''}
                                     onChange={e => setAnswers({ ...answers, [field.id]: e.target.value })}
@@ -303,7 +312,7 @@ export default function PublicFormPage() {
                             {field.type === 'multiple_choice' && (
                                 <div className="space-y-3 mt-2">
                                     {field.options?.map((opt, i) => (
-                                        <label key={i} className="flex items-center gap-3 cursor-pointer">
+                                        <label key={i} className="flex items-center gap-3 cursor-pointer group">
                                             <input
                                                 type="radio"
                                                 name={field.id}
@@ -311,9 +320,9 @@ export default function PublicFormPage() {
                                                 value={opt}
                                                 checked={answers[field.id] === opt}
                                                 onChange={e => setAnswers({ ...answers, [field.id]: e.target.value })}
-                                                className="w-4 h-4 text-primary focus:ring-primary border-gray-300"
+                                                className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                                             />
-                                            <span className="text-gray-700">{opt}</span>
+                                            <span className="text-slate-700 group-hover:text-slate-900 transition-colors">{opt}</span>
                                         </label>
                                     ))}
                                 </div>
@@ -322,14 +331,14 @@ export default function PublicFormPage() {
                             {field.type === 'checkboxes' && (
                                 <div className="space-y-3 mt-2">
                                     {field.options?.map((opt, i) => (
-                                        <label key={i} className="flex items-center gap-3 cursor-pointer">
+                                        <label key={i} className="flex items-center gap-3 cursor-pointer group">
                                             <input
                                                 type="checkbox"
-                                                className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                                                className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
                                                 checked={(answers[field.id] || []).includes(opt)}
                                                 onChange={e => handleCheckboxChange(field.id, opt, e.target.checked)}
                                             />
-                                            <span className="text-gray-700">{opt}</span>
+                                            <span className="text-slate-700 group-hover:text-slate-900 transition-colors">{opt}</span>
                                         </label>
                                     ))}
                                 </div>
@@ -338,7 +347,7 @@ export default function PublicFormPage() {
                             {field.type === 'dropdown' && (
                                 <select
                                     required={field.required}
-                                    className="w-full p-3 bg-white border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+                                    className="w-full p-3 bg-gray-50/50 border border-gray-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
                                     value={answers[field.id] || ''}
                                     onChange={e => setAnswers({ ...answers, [field.id]: e.target.value })}
                                 >
@@ -351,13 +360,13 @@ export default function PublicFormPage() {
 
                             {field.type === 'file_upload' && (
                                 <div className="mt-2">
-                                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-200 border-dashed rounded-2xl cursor-pointer bg-gray-50/50 hover:bg-indigo-50/50 hover:border-indigo-300 transition-all duration-300">
                                         <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                            <UploadCloud className="w-8 h-8 text-gray-400 mb-2" />
+                                            <UploadCloud className="w-8 h-8 text-slate-400 mb-2" />
                                             {answers[field.id] ? (
-                                                 <p className="text-sm text-green-600 font-medium">Image uploaded and compressed.</p>
+                                                 <p className="text-sm text-emerald-600 font-semibold">Image uploaded ✓</p>
                                             ) : (
-                                                <p className="text-sm text-gray-500">Click to upload photo (max 5MB)</p>
+                                                <p className="text-sm text-slate-500">Click to upload photo (max 5MB)</p>
                                             )}
                                         </div>
                                         <input 
@@ -374,7 +383,7 @@ export default function PublicFormPage() {
                                     </label>
                                     {answers[field.id] && (
                                         <div className="mt-4">
-                                            <img src={answers[field.id]} alt="Preview" className="w-24 h-24 object-cover rounded-md border" />
+                                            <img src={answers[field.id]} alt="Preview" className="w-24 h-24 object-cover rounded-2xl border border-gray-200 shadow-sm" />
                                         </div>
                                     )}
                                 </div>
@@ -382,10 +391,11 @@ export default function PublicFormPage() {
                         </div>
                     ))}
 
-                    <div className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                        <span className="text-sm text-gray-500 font-medium tracking-wide">Q-Swift Forms</span>
+                    <div className="flex justify-between items-center bg-white p-6 rounded-3xl shadow-sm border border-gray-200/60">
+                        <span className="text-sm text-slate-400 font-semibold tracking-wide">Q-Swift Forms</span>
                         <Button 
                             type="submit" 
+                            variant="gradient"
                             disabled={submitting}
                             isLoading={submitting}
                             className="w-32"

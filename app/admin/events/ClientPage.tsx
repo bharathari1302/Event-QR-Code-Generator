@@ -103,12 +103,12 @@ export default function EventsPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in-up">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground">Events</h1>
-                    <p className="text-muted-foreground mt-1">Manage your events and participants.</p>
+                    <h1 className="text-3xl font-black tracking-tight text-slate-800">Events</h1>
+                    <p className="text-slate-500 mt-1">Manage your events and participants.</p>
                 </div>
-                <Button onClick={() => setShowForm(!showForm)}>
+                <Button variant="gradient" onClick={() => setShowForm(!showForm)}>
                     <Plus className="w-4 h-4 mr-2" />
                     Create New Event
                 </Button>
@@ -116,13 +116,13 @@ export default function EventsPage() {
 
             {/* Create Form */}
             {showForm && (
-                <div className="bg-card border border-border p-6 rounded-xl shadow-sm animate-in fade-in slide-in-from-top-4">
-                    <h2 className="text-lg font-semibold mb-4 text-card-foreground">Create New Event</h2>
+                <div className="bg-white border border-gray-200/60 p-6 rounded-2xl shadow-sm animate-fade-in-up">
+                    <h2 className="text-lg font-bold mb-4 text-slate-800">Create New Event</h2>
                     <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="col-span-2 md:col-span-1">
-                            <label className="block text-sm font-medium text-muted-foreground mb-1">Event Type</label>
+                            <label className="block text-sm font-semibold text-slate-500 mb-1.5">Event Type</label>
                             <select
-                                className="w-full p-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-ring focus:outline-none text-foreground"
+                                className="w-full p-2.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white outline-none text-slate-800 transition-all"
                                 value={formData.eventType}
                                 onChange={e => setFormData({ ...formData, eventType: e.target.value as 'special' | 'daily' })}
                             >
@@ -131,31 +131,31 @@ export default function EventsPage() {
                             </select>
                         </div>
                         <div className="col-span-2 md:col-span-1">
-                            <label className="block text-sm font-medium text-muted-foreground mb-1">Event Name</label>
+                            <label className="block text-sm font-semibold text-slate-500 mb-1.5">Event Name</label>
                             <input
                                 required
                                 type="text"
-                                className="w-full p-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-ring focus:outline-none text-foreground"
+                                className="w-full p-2.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white outline-none text-slate-800 transition-all"
                                 placeholder="e.g. Symposium 2026"
                                 value={formData.name}
                                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                             />
                         </div>
                         <div className="col-span-2 md:col-span-1">
-                            <label className="block text-sm font-medium text-muted-foreground mb-1">Date</label>
+                            <label className="block text-sm font-semibold text-slate-500 mb-1.5">Date</label>
                             <input
                                 required
                                 type="date"
-                                className="w-full p-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-ring focus:outline-none text-foreground"
+                                className="w-full p-2.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white outline-none text-slate-800 transition-all"
                                 value={formData.date}
                                 onChange={e => setFormData({ ...formData, date: e.target.value })}
                             />
                         </div>
                         <div className="col-span-2">
-                            <label className="block text-sm font-medium text-muted-foreground mb-1">Venue (Optional)</label>
+                            <label className="block text-sm font-semibold text-slate-500 mb-1.5">Venue (Optional)</label>
                             <input
                                 type="text"
-                                className="w-full p-2.5 bg-background border border-input rounded-md focus:ring-2 focus:ring-ring focus:outline-none text-foreground"
+                                className="w-full p-2.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white outline-none text-slate-800 transition-all"
                                 placeholder="e.g. Main Auditorium"
                                 value={formData.venue}
                                 onChange={e => setFormData({ ...formData, venue: e.target.value })}
@@ -163,10 +163,10 @@ export default function EventsPage() {
                         </div>
 
                         {/* Dynamic Form Toggle */}
-                        <div className="col-span-2 p-4 bg-muted/20 border border-border rounded-lg mt-2 flex items-center justify-between">
+                        <div className="col-span-2 p-4 bg-gradient-to-r from-indigo-50/50 to-violet-50/50 border border-indigo-100/60 rounded-xl mt-2 flex items-center justify-between">
                             <div>
-                                <h3 className="font-medium text-foreground">Fetch by Roll No (Global Registration)</h3>
-                                <p className="text-sm text-muted-foreground">Participants enter their Roll No to fetch global details before answering these custom fields.</p>
+                                <h3 className="font-semibold text-slate-800">Fetch by Roll No (Global Registration)</h3>
+                                <p className="text-sm text-slate-500">Participants enter their Roll No to fetch global details before answering these custom fields.</p>
                             </div>
                             <label className="relative inline-flex items-center cursor-pointer">
                                 <input 
@@ -175,14 +175,14 @@ export default function EventsPage() {
                                     checked={formData.isDynamicForm}
                                     onChange={e => setFormData({ ...formData, isDynamicForm: e.target.checked })}
                                 />
-                                <div className="w-11 h-6 bg-muted-foreground/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                             </label>
                         </div>
 
                         {/* Form Builder UI */}
                         {formData.isDynamicForm && (
-                            <div className="col-span-2 bg-background p-4 border border-border rounded-lg mt-2">
-                                <h3 className="font-semibold text-lg mb-4 text-foreground">Dynamic Fields</h3>
+                            <div className="col-span-2 bg-white p-4 border border-gray-200/60 rounded-xl mt-2">
+                                <h3 className="font-bold text-lg mb-4 text-slate-800">Dynamic Fields</h3>
                                 <FormBuilder 
                                     fields={formData.formFields} 
                                     onChange={(fields) => setFormData({ ...formData, formFields: fields })} 
@@ -200,6 +200,7 @@ export default function EventsPage() {
                             </Button>
                             <Button
                                 type="submit"
+                                variant="gradient"
                                 disabled={creating}
                                 isLoading={creating}
                             >
@@ -213,38 +214,45 @@ export default function EventsPage() {
             {/* Events List */}
             {loading ? (
                 <div className="flex justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {events.map(event => (
-                        <div key={event.id} className="group bg-card border border-border rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col">
+                    {events.map((event, i) => (
+                        <div 
+                            key={event.id} 
+                            className="group bg-white border border-gray-200/60 rounded-2xl shadow-sm card-premium overflow-hidden flex flex-col animate-fade-in-up"
+                            style={{ animationDelay: `${i * 80}ms`, opacity: 0 }}
+                        >
+                            {/* Gradient accent top bar */}
+                            <div className={`h-1.5 ${event.eventType === 'daily' ? 'bg-gradient-to-r from-cyan-500 to-blue-500' : 'bg-gradient-to-r from-indigo-500 to-violet-500'}`} />
                             <div className="p-6 flex-1">
-                                <h3 className="text-xl font-bold text-card-foreground mb-2 group-hover:text-primary transition-colors flex items-center gap-2">
+                                <h3 className="text-xl font-bold text-slate-800 mb-2 group-hover:text-indigo-700 transition-colors flex items-center gap-2">
                                     {event.name}
-                                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${event.eventType === 'daily' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                                    <span className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full ${event.eventType === 'daily' ? 'bg-cyan-50 text-cyan-700 border border-cyan-200/40' : 'bg-violet-50 text-violet-700 border border-violet-200/40'}`}>
                                         {event.eventType === 'daily' ? 'Daily Mess' : 'Special Event'}
                                     </span>
                                 </h3>
-                                <div className="space-y-2 text-sm text-muted-foreground">
+                                <div className="space-y-2 text-sm text-slate-500">
                                     <div className="flex items-center gap-2">
-                                        <Calendar className="w-4 h-4" />
+                                        <Calendar className="w-4 h-4 text-indigo-400" />
                                         {event.date}
                                     </div>
                                     {event.venue && (
                                         <div className="flex items-center gap-2">
-                                            <MapPin className="w-4 h-4" />
+                                            <MapPin className="w-4 h-4 text-indigo-400" />
                                             {event.venue}
                                         </div>
                                     )}
                                 </div>
                             </div>
-                            <div className="bg-muted/30 p-4 border-t border-border flex justify-between items-center">
-                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            <div className="bg-gray-50/50 p-4 border-t border-gray-100 flex justify-between items-center">
+                                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                     Active
                                 </span>
                                 <Link href={`/admin/manage/${event.id}`}>
-                                    <Button variant="ghost" size="sm" className="text-primary hover:text-primary hover:bg-primary/10">
+                                    <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50">
                                         Manage <ExternalLink className="w-4 h-4 ml-2" />
                                     </Button>
                                 </Link>
@@ -253,11 +261,11 @@ export default function EventsPage() {
                     ))}
 
                     {events.length === 0 && (
-                        <div className="col-span-full text-center py-12 border-2 border-dashed border-border rounded-xl bg-muted/5">
-                            <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-                            <h3 className="text-lg font-medium text-foreground">No events found</h3>
-                            <p className="text-muted-foreground mt-1">Get started by creating your first event.</p>
-                            <Button variant="outline" className="mt-4" onClick={() => setShowForm(true)}>
+                        <div className="col-span-full text-center py-12 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/30">
+                            <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                            <h3 className="text-lg font-semibold text-slate-700">No events found</h3>
+                            <p className="text-slate-500 mt-1">Get started by creating your first event.</p>
+                            <Button variant="gradient" className="mt-4" onClick={() => setShowForm(true)}>
                                 Create Event
                             </Button>
                         </div>

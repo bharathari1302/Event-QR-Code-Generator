@@ -37,8 +37,8 @@ export default function RootLayout({
             <DevToolsHider />
             <div className="min-h-screen flex flex-col">
               <main className="flex-1">{children}</main>
-              <footer className="w-full py-3 text-center text-xs text-gray-400 bg-gray-50 border-t border-gray-100">
-                Developed by <span className="font-semibold text-gray-600">BHARAT HARI S</span> — AIML
+              <footer className="w-full py-4 text-center text-xs text-gray-400 bg-gradient-to-r from-gray-50 via-white to-gray-50 border-t border-gray-200/60">
+                <span className="tracking-wide">Developed by </span><span className="font-bold text-gradient">BHARAT HARI S</span><span className="mx-1.5 text-gray-300">•</span><span className="tracking-wider uppercase text-[10px] font-semibold text-gray-400">AIML</span>
               </footer>
             </div>
           </AuthProvider>
